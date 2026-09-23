@@ -1,0 +1,9 @@
+# Copyright (C) 2026 Luke Brewerton
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Gitleaks config, used by CI (`make secrets-scan`) and the optional pre-commit hook.
+# Extends gitleaks' built-in rules. Add allowlist entries only for confirmed false
+# positives, with a comment saying why.
+
+[extend]
+useDefault = true

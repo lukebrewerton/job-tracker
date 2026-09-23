@@ -1,0 +1,19 @@
+#!/bin/sh
+# Copyright (C) 2026 Luke Brewerton
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Optional pre-commit hook: scan staged changes for secrets before they're committed.
+# Enable with `make hooks`, disable with `make hooks-off`, skip once with
+# `git commit --no-verify`. CI runs the same scan on every PR regardless.
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  cat >&2 <<'MSG'
+pre-commit: gitleaks is not installed, so staged changes can't be scanned for secrets.
+  Install it:              brew install gitleaks
+  Or skip this commit:     git commit --no-verify
+  Or turn the hook off:    make hooks-off
+MSG
+  exit 1
+fi
+
+exec gitleaks git --pre-commit --staged --redact --no-banner --config .gitleaks.toml

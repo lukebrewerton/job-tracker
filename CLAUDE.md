@@ -46,8 +46,8 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
 - Commit subjects: conventional-commit style, imperative mood.
 - Everything reaches `main` through a PR; CI must pass.
 - CI (`.github/workflows/ci.yml`) runs jobs `lint-api`, `test-api`, `lint-web`, `test-web`,
-  `docker-build` — each calls the matching `make` target. Job names are required status
-  checks: don't rename them without updating the ruleset.
+  `docker-build`, `secrets-scan` — each calls the matching `make` target. Job names are
+  required status checks: don't rename them without updating the ruleset.
 - **Never use `pull_request_target`**, and never let CI reference secrets. Deploys run
   only from `push` to `main`, through the `production` environment.
 - **Never commit secrets.** `.env` is git-ignored; if a secret is ever committed,
@@ -65,6 +65,9 @@ Targets come in pairs per stack (`-api`, `-web`); the bare name runs both.
 - `make image` / `make image-run` — build and run the production image locally (uses `.env`)
 - `make lint` — ruff + mypy, and oxlint (type-aware, incl. type-check) + prettier --check
 - `make format` — ruff fix/format and prettier --write
+- `make secrets-scan` — gitleaks over the full git history (pinned Docker image, same as CI)
+- `make hooks` / `make hooks-off` — opt in/out of the pre-commit secrets hook (needs
+  `brew install gitleaks`)
 - `make test` — pytest with JUnit + coverage reports in `reports/` (git-ignored), and frontend
   tests once they exist
 
