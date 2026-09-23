@@ -75,8 +75,10 @@ format-web: ## prettier --write
 
 test: test-api test-web ## Run all test suites
 
-test-api: ## Run the backend tests (pytest)
-	uv run pytest
+test-api: ## Run the backend tests (pytest) with JUnit + Cobertura reports in reports/api/
+	uv run pytest \
+		--junitxml=reports/api/junit.xml \
+		--cov=app --cov-report=term --cov-report=xml:reports/api/coverage.xml
 
 test-web: ## Run the frontend tests
 	@echo "No frontend tests yet (Vitest arrives with the API client, JT-30)."
