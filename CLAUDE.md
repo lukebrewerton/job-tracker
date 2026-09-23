@@ -36,6 +36,12 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
 - **Database access:** routes take `DbSession` (`app/db.py`) — one transaction per request,
   committed before the response is sent. Never commit/begin manually in a route. Row-level
   security keys off `app.user_id`, set per transaction with `set_session_user()`.
+- **Row-level security** protects `jobs`, `status_history` and `interviews` (see the initial
+  migration). It only works because the app connects as `jobtracker_app`: a role that is
+  **neither superuser nor BYPASSRLS** (both skip RLS entirely). `alembic/env.py` refuses to
+  run otherwise. Never point `DATABASE_URL` at Neon's `neondb_owner` or Docker's
+  `POSTGRES_USER`. New user-owned tables need `user_id`, RLS (`ENABLE` + `FORCE`) and a
+  `user_isolation` policy in their migration, plus isolation tests.
 - **Tests that touch the database** use the `test_db_url` / `db_engine` / `db_session`
   fixtures (a separate `<db>_test` database, rebuilt and migrated per run). They need
   `make up` locally and fail — not skip — without it.

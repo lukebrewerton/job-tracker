@@ -53,18 +53,21 @@ jobs:
       postgres:
         image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
         env:
-          POSTGRES_USER: ci
-          POSTGRES_PASSWORD: ci-only
+          POSTGRES_USER: ci-admin
+          POSTGRES_PASSWORD: ci-admin-only
           POSTGRES_DB: jobtracker
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U ci -d jobtracker"
+          --health-cmd "pg_isready -U ci-admin -d jobtracker"
           --health-interval 2s
           --health-timeout 3s
           --health-retries 15
     env:
-      DATABASE_URL: postgresql://ci:ci-only@localhost:5432/jobtracker
+      # The tests run as a non-superuser, non-BYPASSRLS role (created below), exactly as
+      # the app must in production — otherwise row-level security isn't enforced and the
+      # isolation tests would prove nothing.
+      DATABASE_URL: postgresql://jobtracker_app:ci-app-only@localhost:5432/jobtracker
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -74,6 +77,15 @@ jobs:
           version: "0.12.18"
           enable-cache: true
       - run: uv sync --frozen
+      # Same SQL as docker/postgres/initdb (the service container can't mount it).
+      - name: Create the app's database role
+        run: |
+          docker exec -i "${{ job.services.postgres.id }}" \
+            psql -v ON_ERROR_STOP=1 -U ci-admin -d jobtracker <<'SQL'
+          CREATE ROLE jobtracker_app LOGIN PASSWORD 'ci-app-only'
+            NOSUPERUSER NOBYPASSRLS NOCREATEROLE CREATEDB;
+          ALTER DATABASE jobtracker OWNER TO jobtracker_app;
+          SQL
       # Writes JUnit + Cobertura to reports/api/. Not published anywhere yet (later ticket).
       - run: make test-api
 

@@ -17,7 +17,7 @@ from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import Depends, Request
-from sqlalchemy import MetaData, text
+from sqlalchemy import Connection, MetaData, text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -56,6 +56,32 @@ def create_engine(settings: Settings) -> AsyncEngine:
 
 def create_sessionmaker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
     return async_sessionmaker(engine, expire_on_commit=False)
+
+
+class UnsafeDatabaseRoleError(RuntimeError):
+    """The database role would silently bypass row-level security."""
+
+
+def check_role_enforces_rls(connection: Connection) -> None:
+    """Refuse to proceed as a role for which Postgres skips row-level security.
+
+    Superusers and BYPASSRLS roles ignore RLS policies entirely — even with FORCE ROW LEVEL
+    SECURITY — so every user's data would be visible to every other. Neon's default
+    `neondb_owner` has BYPASSRLS, and Docker's POSTGRES_USER is a superuser. Called by
+    Alembic before every migration; migrations run on every container start, so a
+    misconfigured deployment fails to start instead of running without isolation.
+    """
+    role, is_superuser, bypasses_rls = connection.execute(
+        text(
+            "SELECT current_user, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user"
+        )
+    ).one()
+    if is_superuser or bypasses_rls:
+        raise UnsafeDatabaseRoleError(
+            f"Database role {role!r} is a superuser or has BYPASSRLS, so row-level security "
+            "would be silently skipped and users could see each other's data. Connect as a "
+            "dedicated NOSUPERUSER NOBYPASSRLS role that owns the database (see .env.example)."
+        )
 
 
 async def set_session_user(session: AsyncSession, user_id: uuid.UUID) -> None:
