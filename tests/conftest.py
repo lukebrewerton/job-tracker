@@ -41,11 +41,22 @@ def static_dir(tmp_path: Path) -> Path:
     return tmp_path
 
 
+# Sign-in settings used by every test app. The OIDC issuer is faked with respx.
+OIDC_ISSUER = "https://issuer.example.test"
+OIDC_CLIENT_ID = "test-client-id"
+ALLOWED_EMAIL = "allowed@example.test"
+
+
 def make_settings(static_dir: Path, database_url: str = UNREACHABLE_DB_URL) -> Settings:
     return Settings(
         public_base_url=PUBLIC_BASE_URL,
         static_dir=static_dir,
         database_url=database_url,
+        oidc_issuer=OIDC_ISSUER,
+        oidc_client_id=OIDC_CLIENT_ID,
+        oidc_client_secret="test-client-secret",
+        session_secret="test-session-secret-at-least-32-chars!!",
+        allowed_emails=ALLOWED_EMAIL,
         _env_file=None,
     )
 
