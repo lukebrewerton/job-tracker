@@ -8,6 +8,8 @@
 # - 7-day cooldown: don't adopt a release until it has been public for a week, so
 #   malicious/broken releases are usually caught and pulled before we pick them up.
 # - Commit prefixes keep squash-merged history conventional (PR title = commit subject).
+# - Node majors are ignored (runtime image + @types/node): we stay on the current LTS and
+#   upgrade deliberately. Patch/minor updates within the LTS line still arrive.
 
 version: 2
 
@@ -37,6 +39,10 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
+    # Types must match the Node runtime (24 LTS). Major moves are manual (Node LTS upgrades).
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-minor-patch:
         patterns: ["*"]
@@ -67,6 +73,11 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
+    # Stay on Node LTS: odd majors are never LTS and even ones land months before LTS.
+    # LTS upgrades are done by hand (.nvmrc + Dockerfile + @types/node together).
+    ignore:
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
     groups:
       docker-minor-patch:
         patterns: ["*"]
