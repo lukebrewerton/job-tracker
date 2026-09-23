@@ -1,4 +1,4 @@
-.PHONY: help sync lock lint format test
+.PHONY: help sync lock dev lint format test
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -9,6 +9,9 @@ sync: ## Create/update the local virtualenv from uv.lock
 
 lock: ## Regenerate uv.lock from pyproject.toml (run after changing deps)
 	uv lock
+
+dev: ## Run the API with auto-reload on http://localhost:8000 (reads .env)
+	uv run uvicorn app.main:create_app --factory --reload
 
 lint: ## Lint + format-check + type-check (ruff check, ruff format --check, mypy)
 	uv run ruff check .

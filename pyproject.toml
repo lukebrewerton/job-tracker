@@ -5,10 +5,15 @@ description = "Self-hostable, single-user job application tracker"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "fastapi>=0.141.1",
+    "pydantic-settings>=2.15.0",
+    "uvicorn[standard]>=0.53.0",
+]
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.13.1",
     "mypy>=2.3",
     "pytest>=9.1",
     "ruff>=0.16",
@@ -43,6 +48,7 @@ check_untyped_defs = true
 # Deliberately not --strict yet. Flip these on per-package as the code settles:
 disallow_untyped_defs = false
 ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 addopts = "-q"

@@ -50,6 +50,7 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
 
 - `make sync` — create/update the virtualenv from `uv.lock`
 - `make lock` — regenerate `uv.lock` after changing dependencies
+- `make dev` — run the API with auto-reload on http://localhost:8000 (needs `.env`)
 - `make lint` — `ruff check` + `ruff format --check` + `mypy`
 - `make format` — `ruff check --fix` + `ruff format`
 - `make test` — pytest

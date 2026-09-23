@@ -20,7 +20,9 @@ Google sign-in (OIDC). One repo, one container: the backend serves the built fro
 Requires [uv](https://docs.astral.sh/uv/) (it installs the right Python version for you).
 
 ```sh
+cp .env.example .env   # then edit values
 make sync   # create the virtualenv from uv.lock
+make dev    # run the API on http://localhost:8000
 make lint   # ruff + mypy
 make test   # pytest
 ```
