@@ -125,7 +125,7 @@ async def test_db_session_commits_on_success(
 ) -> None:
     key = f"ok-{uuid.uuid4()}"
     with TestClient(_app_with_probe_routes(static_dir, test_db_url), base_url=PUBLIC_BASE_URL) as c:
-        assert c.post(f"/api/_probe/{key}").status_code == 200
+        assert c.post(f"/api/_probe/{key}", json={}).status_code == 200
     assert await _rows(db_engine, key) == 1
 
 
@@ -135,7 +135,7 @@ async def test_db_session_rolls_back_on_error(
     key = f"fail-{uuid.uuid4()}"
     app = _app_with_probe_routes(static_dir, test_db_url)
     with TestClient(app, base_url=PUBLIC_BASE_URL, raise_server_exceptions=False) as c:
-        assert c.post(f"/api/_probe/{key}/fail").status_code == 500
+        assert c.post(f"/api/_probe/{key}/fail", json={}).status_code == 500
     assert await _rows(db_engine, key) == 0
 
 
@@ -147,5 +147,5 @@ async def test_commit_failure_is_a_500_not_a_false_success(
     key = f"twice-{uuid.uuid4()}"
     app = _app_with_probe_routes(static_dir, test_db_url)
     with TestClient(app, base_url=PUBLIC_BASE_URL, raise_server_exceptions=False) as c:
-        assert c.post(f"/api/_probe/{key}/twice").status_code == 500
+        assert c.post(f"/api/_probe/{key}/twice", json={}).status_code == 500
     assert await _rows(db_engine, key) == 0

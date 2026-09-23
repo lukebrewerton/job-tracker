@@ -105,7 +105,7 @@ async def _commit_separately(request: Request, sql: str, params: dict[str, objec
         await db.execute(text(sql), params)
 
 
-async def _current_user(request: Request, db: DbSession) -> CurrentUser:
+async def current_user(request: Request, db: DbSession) -> CurrentUser:
     token = request.cookies.get(COOKIE_NAME)
     if not token:
         raise _unauthenticated(clear_cookie=False)
@@ -152,7 +152,15 @@ async def _current_user(request: Request, db: DbSession) -> CurrentUser:
     return CurrentUser(id=row.user_id, email=row.email)
 
 
-CurrentUserDep = Annotated[CurrentUser, Depends(_current_user)]
+CurrentUserDep = Annotated[CurrentUser, Depends(current_user)]
+
+
+async def page_user(request: Request, db: DbSession) -> CurrentUser | None:
+    """For full page loads: the signed-in user, or None (the caller redirects to sign-in)."""
+    try:
+        return await current_user(request, db)
+    except HTTPException:
+        return None
 
 
 async def _user_db_session(user: CurrentUserDep, db: DbSession) -> AsyncSession:

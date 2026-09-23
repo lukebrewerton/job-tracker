@@ -33,6 +33,15 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
   commit the updated `uv.lock`. The Docker build uses `uv sync --frozen`.
 - **All schema changes via Alembic.** Enums are `native_enum=False` (text + CHECK), not
   native Postgres enums.
+- **API routes live on `api_router` (`app/api.py`), never on the app**: the router itself
+  requires a session, so no route can forget authentication. **Every `/api` route needs an
+  isolation case in `tests/isolation.py`** (what user B gets when aimed at user A's data:
+  404 or empty) — CI fails otherwise.
+- **CSRF** (`app/security.py`): writes from a foreign `Origin` get 403; `POST/PUT/PATCH` to
+  `/api` must be `application/json` (415). Needed because SameSite=Lax treats sibling
+  `*.job-finder.dev` subdomains as the same site.
+- **Pages** need a session (else 302 to `/auth/login?next=…`); built files stay public.
+  API docs (`/api/docs`) exist only with `ENVIRONMENT=development`.
 - **Database access:** data routes take **`UserDbSession`** (`app/sessions.py`): the request's
   single transaction, committed before the response is sent, with `app.user_id` set to the
   signed-in user so row-level security only exposes their rows (unauthenticated → 401).

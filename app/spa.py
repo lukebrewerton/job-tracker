@@ -7,14 +7,23 @@
   (e.g. `/favicon.ico`), otherwise `index.html` so client-side routes deep-link.
 
 `/api/*` and `/auth/*` are never answered with the SPA: an unknown API path must be a
-JSON 404, not an HTML page. Session gating of the SPA is added by the auth work (JT-16).
+JSON 404, not an HTML page.
+
+The app shell (`index.html`) is only served to a signed-in user. Otherwise the browser is
+sent to sign in, and brought back to the exact URL afterwards — which is what makes the
+extension's `/jobs/new?url=…` link work on a cold start. Built files stay public: they
+contain no data.
 """
 
 from pathlib import Path
+from typing import Annotated
+from urllib.parse import quote
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+
+from app.sessions import CurrentUser, page_user
 
 RESERVED_PREFIXES = ("api", "auth")
 
@@ -27,8 +36,12 @@ def mount_spa(app: FastAPI, static_dir: Path) -> None:
     # frontend has been built, e.g. in backend-only tests and CI jobs.
     app.mount("/assets", StaticFiles(directory=root / "assets", check_dir=False), name="assets")
 
-    @app.get("/{path:path}", include_in_schema=False)
-    async def spa(path: str) -> FileResponse:
+    @app.get("/{path:path}", include_in_schema=False, response_model=None)
+    async def spa(
+        path: str,
+        request: Request,
+        user: Annotated[CurrentUser | None, Depends(page_user)],
+    ) -> FileResponse | RedirectResponse:
         if path.split("/", 1)[0] in RESERVED_PREFIXES:
             raise HTTPException(status_code=404)
 
@@ -37,6 +50,10 @@ def mount_spa(app: FastAPI, static_dir: Path) -> None:
             # is_relative_to blocks `..` traversal out of the build directory.
             if candidate.is_relative_to(root) and candidate.is_file():
                 return FileResponse(candidate)
+
+        if user is None:
+            target = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+            return RedirectResponse(f"/auth/login?next={quote(target, safe='')}", status_code=302)
 
         if not index.is_file():
             raise HTTPException(status_code=404, detail="Frontend not built")

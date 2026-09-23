@@ -8,14 +8,14 @@ from pydantic import AnyHttpUrl
 from app.config import Settings
 from app.main import create_app
 
-from .conftest import PUBLIC_BASE_URL
+from .conftest import PUBLIC_BASE_URL, signed_in
 
 
 @pytest.fixture
 def foreign_client(settings: Settings) -> TestClient:
     """A client hitting the app on a non-canonical host (e.g. Render's onrender.com URL)."""
     return TestClient(
-        create_app(settings),
+        signed_in(create_app(settings)),
         base_url="https://job-tracker.onrender.com",
         follow_redirects=False,
     )
@@ -48,5 +48,7 @@ def test_canonical_host_is_not_redirected(client: TestClient) -> None:
 def test_port_difference_is_not_a_different_host(settings: Settings) -> None:
     # Local dev: Vite on :5173 proxies to FastAPI on :8000 with the same hostname.
     local = settings.model_copy(update={"public_base_url": AnyHttpUrl("http://localhost:8000")})
-    c = TestClient(create_app(local), base_url="http://localhost:5173", follow_redirects=False)
+    c = TestClient(
+        signed_in(create_app(local)), base_url="http://localhost:5173", follow_redirects=False
+    )
     assert c.get("/jobs").status_code == 200

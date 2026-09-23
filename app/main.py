@@ -17,10 +17,12 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import text
 
 from app import __version__
+from app.api import api_router
 from app.auth import install_auth
 from app.config import Settings, get_settings
 from app.db import create_engine, create_sessionmaker
 from app.logging_config import configure_logging
+from app.security import install_csrf_protection
 from app.spa import mount_spa
 
 logger = logging.getLogger(__name__)
@@ -53,10 +55,15 @@ def create_app(
         lifespan=lifespan,
         title="Job Tracker",
         version=__version__,
-        docs_url=None,
+        # API docs in development only; in production both paths are 404s.
+        docs_url="/api/docs" if settings.is_development else None,
+        openapi_url="/api/openapi.json" if settings.is_development else None,
         redoc_url=None,
-        openapi_url="/api/openapi.json",
     )
+
+    # Middleware added later wraps earlier ones, so the host redirect below runs first:
+    # requests are canonicalised to the public host before the CSRF checks see them.
+    install_csrf_protection(app, settings)
 
     @app.middleware("http")
     async def redirect_to_public_host(
@@ -93,6 +100,7 @@ def create_app(
         return {"status": "ok"}
 
     install_auth(app, settings, transport=oidc_transport)
+    app.include_router(api_router)
 
     # Must be registered last: it catches every path the routes above don't.
     mount_spa(app, settings.static_dir)
