@@ -17,18 +17,20 @@ Google sign-in (OIDC). One repo, one container: the backend serves the built fro
 
 ## Local development
 
-Requires [uv](https://docs.astral.sh/uv/) (it installs the right Python version for you).
+Requires [uv](https://docs.astral.sh/uv/) (it installs the right Python for you) and
+Node 24 (see `.nvmrc`; e.g. `fnm use`).
 
 ```sh
 cp .env.example .env   # then edit values
-make sync   # create the virtualenv from uv.lock
-make dev    # run the API on http://localhost:8000
-make lint   # ruff + mypy
-make test   # pytest
+make sync              # install backend and frontend dependencies
+make dev               # API on http://localhost:8000
+make dev-web           # frontend on http://localhost:5173 (proxies API calls to :8000)
+make lint              # ruff + mypy, oxlint + prettier
+make test              # test suites
 ```
 
-Run `make help` to list every target. More setup steps (database, frontend, sign-in)
-will be added as those pieces land.
+Run `make help` to list every target. More setup steps (database, sign-in) will be added
+as those pieces land.
 
 ## Licence
 

@@ -16,7 +16,10 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
 - Python 3.14 · FastAPI · Pydantic v2 · SQLAlchemy 2.x **async** (psycopg 3) · Alembic
 - PostgreSQL (Neon in production, Docker Compose locally)
 - Auth: app-level OIDC via Authlib (Google by default), DB-backed sessions
-- Frontend: React · TypeScript · Vite · Tailwind v4 · TanStack Query + Table · React Router
+- Frontend (`frontend/`): React · TypeScript 7 · Vite · Tailwind v4 · TanStack Query + Table ·
+  React Router · Node 24 (`.nvmrc`) · npm
+- Frontend tooling: **oxlint** (type-aware via `oxlint-tsgolint`, which also type-checks) ·
+  **prettier** (+ Tailwind class sorting). Not ESLint: typescript-eslint doesn't support TS 7 yet
 - One repo, one deployable: a multi-stage Dockerfile builds the frontend and the backend
   serves it, so everything is single-origin (one cookie, no CORS)
 - Tooling: **uv** (env/deps) · **ruff** (lint *and* format — there is no Black) ·
@@ -32,7 +35,8 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
   native Postgres enums.
 - **SPDX header** as the first lines of every authored source file (before any
   docstring): `# Copyright (C) 2026 Luke Brewerton` /
-  `# SPDX-License-Identifier: AGPL-3.0-or-later` for Python, `//` for TypeScript.
+  `# SPDX-License-Identifier: AGPL-3.0-or-later` for Python, `//` for TypeScript, `/* */` for
+  CSS, `<!-- -->` for HTML (after the doctype).
 - **British spelling** in prose, comments and UI copy.
 - The entity is a **job** everywhere (table, API, routes) — never "application".
 
@@ -48,16 +52,19 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
 
 ## Common commands
 
-- `make sync` — create/update the virtualenv from `uv.lock`
-- `make lock` — regenerate `uv.lock` after changing dependencies
-- `make dev` — run the API with auto-reload on http://localhost:8000 (needs `.env`)
-- `make lint` — `ruff check` + `ruff format --check` + `mypy`
-- `make format` — `ruff check --fix` + `ruff format`
-- `make test` — pytest
+Targets come in pairs per stack (`-api`, `-web`); the bare name runs both.
+
+- `make sync` — install backend (uv) and frontend (npm ci) dependencies
+- `make lock` — regenerate `uv.lock` after changing Python dependencies
+- `make dev` / `make dev-web` — API on :8000 (needs `.env`) / Vite on :5173 (proxies `/api`, `/auth`)
+- `make build-web` — build the frontend into `frontend/dist`
+- `make lint` — ruff + mypy, and oxlint (type-aware, incl. type-check) + prettier --check
+- `make format` — ruff fix/format and prettier --write
+- `make test` — pytest (and frontend tests once they exist)
 
 ## Definition of done (every change)
 
-1. `make lint` and `make test` pass (and the frontend checks, once it exists).
+1. `make lint` and `make test` pass (both stacks).
 2. Alembic migration included if the schema changed.
 3. Any new env var added to `.env.example` (placeholder only); no real secret staged.
 4. SPDX headers on new source files.
