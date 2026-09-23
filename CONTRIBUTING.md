@@ -16,6 +16,8 @@ self-hosted, but genuine contributions are welcome.
   locally — the same checks run in CI on your PR.
 - If you touched the schema, include an Alembic migration.
 - If you added an env var, add it to `.env.example` with a placeholder value.
+- PRs are scanned for secrets (gitleaks). To catch them before you commit, turn on the
+  optional pre-commit hook: `brew install gitleaks && make hooks` (see the README).
 
 ## Copyright and licensing
 

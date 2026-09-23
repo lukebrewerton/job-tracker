@@ -1,5 +1,6 @@
 .PHONY: help sync sync-api sync-web lock dev dev-web build-web up down db-reset image image-run \
-	lint lint-api lint-web format format-api format-web test test-api test-web
+	lint lint-api lint-web format format-api format-web test test-api test-web \
+	secrets-scan hooks hooks-off
 
 WEB := frontend
 
@@ -50,6 +51,23 @@ image: ## Build the production Docker image (job-tracker:local)
 
 image-run: ## Run the production image on http://localhost:8000 with .env
 	docker run --rm -p 8000:8000 --env-file .env job-tracker:local
+
+# --- Secrets -------------------------------------------------------------------
+
+# Same pinned image in CI and locally; the version/digest is bumped by hand.
+GITLEAKS_IMAGE := ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+
+secrets-scan: ## Scan the whole git history for secrets (gitleaks via Docker)
+	docker run --rm -v "$(CURDIR):/repo" $(GITLEAKS_IMAGE) \
+		git /repo --config /repo/.gitleaks.toml --redact --no-banner --verbose
+
+hooks: ## Opt in: enable the pre-commit secrets hook for this clone (needs `brew install gitleaks`)
+	git config core.hooksPath .githooks
+	@echo "Git hooks enabled (.githooks). Disable with: make hooks-off"
+
+hooks-off: ## Opt out: disable the repo's git hooks for this clone
+	git config --unset core.hooksPath || true
+	@echo "Git hooks disabled."
 
 # --- Quality -----------------------------------------------------------------
 
