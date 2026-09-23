@@ -1,4 +1,4 @@
-.PHONY: help sync sync-api sync-web lock dev dev-web build-web \
+.PHONY: help sync sync-api sync-web lock dev dev-web build-web up down db-reset image image-run \
 	lint lint-api lint-web format format-api format-web test test-api test-web
 
 WEB := frontend
@@ -30,6 +30,26 @@ dev-web: ## Run the Vite dev server on http://localhost:5173 (proxies /api, /aut
 
 build-web: ## Build the frontend into frontend/dist
 	cd $(WEB) && npm run build
+
+# --- Local database (Postgres in Docker) ---------------------------------------
+
+up: ## Start local Postgres (reads .env) and wait until it's healthy
+	docker compose up -d --wait
+
+down: ## Stop local Postgres (data is kept)
+	docker compose down
+
+db-reset: ## DESTRUCTIVE: delete the local Postgres volume and start fresh
+	docker compose down --volumes
+	docker compose up -d --wait
+
+# --- Production image ------------------------------------------------------------
+
+image: ## Build the production Docker image (job-tracker:local)
+	docker build -t job-tracker:local .
+
+image-run: ## Run the production image on http://localhost:8000 with .env
+	docker run --rm -p 8000:8000 --env-file .env job-tracker:local
 
 # --- Quality -----------------------------------------------------------------
 
