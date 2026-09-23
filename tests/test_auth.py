@@ -9,6 +9,8 @@ expiry, nonce) really runs — the tests prove bad tokens are rejected, not just
 call a library.
 """
 
+import base64
+import hashlib
 import time
 import uuid
 from collections.abc import Iterator
@@ -47,6 +49,7 @@ class FakeProvider:
     signing_key: RSAKey = field(default_factory=lambda: SIGNING_KEY)
     include_id_token: bool = True
     nonce: str | None = None  # captured from the authorisation redirect
+    code_challenge: str | None = None  # likewise: PKCE is enforced like a real provider
 
     def handle(self, request: httpx2.Request) -> httpx2.Response:
         """The whole fake provider: discovery, signing keys and the token endpoint."""
@@ -65,8 +68,17 @@ class FakeProvider:
         if url == f"{OIDC_ISSUER}/jwks":
             return httpx2.Response(200, json={"keys": [SIGNING_KEY.as_dict(private=False)]})
         if url == f"{OIDC_ISSUER}/token" and request.method == "POST":
+            form = {k: v[0] for k, v in parse_qs(request.content.decode()).items()}
+            if not self._pkce_ok(form.get("code_verifier")):
+                return httpx2.Response(400, json={"error": "invalid_grant"})
             return self.token_response()
         return httpx2.Response(404)
+
+    def _pkce_ok(self, verifier: str | None) -> bool:
+        if not verifier or not self.code_challenge:
+            return False
+        digest = hashlib.sha256(verifier.encode()).digest()
+        return base64.urlsafe_b64encode(digest).rstrip(b"=").decode() == self.code_challenge
 
     def token_response(self) -> httpx2.Response:
         body: dict[str, Any] = {"access_token": "at", "token_type": "Bearer", "expires_in": 3600}
@@ -110,6 +122,7 @@ def _start_login(client: TestClient, provider: FakeProvider, **params: str) -> d
     assert f"{location.scheme}://{location.netloc}{location.path}" == f"{OIDC_ISSUER}/authorize"
     query = {k: v[0] for k, v in parse_qs(location.query).items()}
     provider.nonce = query.get("nonce")
+    provider.code_challenge = query.get("code_challenge")
     return query
 
 
@@ -137,6 +150,23 @@ def test_login_redirects_to_provider_with_minimal_scope(
     assert query["redirect_uri"] == f"{PUBLIC_BASE_URL}/auth/callback"
     assert query["state"] and query["nonce"]
     assert "prompt" not in query
+
+
+def test_login_uses_pkce_s256(client: TestClient, provider: FakeProvider) -> None:
+    query = _start_login(client, provider)
+    assert query["code_challenge_method"] == "S256"
+    assert len(query["code_challenge"]) >= 43  # base64url SHA-256, never the verifier
+    assert "code_verifier" not in query
+
+
+def test_code_exchange_without_the_matching_pkce_verifier_fails(
+    client: TestClient, provider: FakeProvider
+) -> None:
+    # A stolen code replayed by someone else: they can't know the verifier, so the
+    # provider (enforcing PKCE, like Google) refuses the exchange.
+    query = _start_login(client, provider)
+    provider.code_challenge = "challenge-for-a-different-login"
+    assert _callback(client, query["state"]).headers["location"] == "/auth/denied?reason=failed"
 
 
 def test_login_cookie_is_scoped_short_lived_and_locked_down(

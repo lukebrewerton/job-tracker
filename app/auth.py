@@ -50,7 +50,13 @@ def install_auth(
     `transport` replaces the HTTP transport used to talk to the provider. Tests only: it
     lets them stand up a fake provider that issues real signed tokens.
     """
-    client_kwargs: dict[str, Any] = {"scope": "openid email", "timeout": 10}
+    client_kwargs: dict[str, Any] = {
+        "scope": "openid email",
+        # PKCE: an intercepted authorisation code is useless without the one-time
+        # verifier, which never leaves the server (kept in the signed login cookie).
+        "code_challenge_method": "S256",
+        "timeout": 10,
+    }
     if transport is not None:
         client_kwargs["transport"] = transport
     oauth = OAuth()
