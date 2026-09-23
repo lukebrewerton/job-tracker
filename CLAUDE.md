@@ -33,9 +33,11 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
   commit the updated `uv.lock`. The Docker build uses `uv sync --frozen`.
 - **All schema changes via Alembic.** Enums are `native_enum=False` (text + CHECK), not
   native Postgres enums.
-- **Database access:** routes take `DbSession` (`app/db.py`) — one transaction per request,
-  committed before the response is sent. Never commit/begin manually in a route. Row-level
-  security keys off `app.user_id`, set per transaction with `set_session_user()`.
+- **Database access:** data routes take **`UserDbSession`** (`app/sessions.py`): the request's
+  single transaction, committed before the response is sent, with `app.user_id` set to the
+  signed-in user so row-level security only exposes their rows (unauthenticated → 401).
+  Plain `DbSession` (`app/db.py`) is for the auth code only. Never commit/begin manually in
+  a route.
 - **Row-level security** protects `jobs`, `status_history` and `interviews` (see the initial
   migration). It only works because the app connects as `jobtracker_app`: a role that is
   **neither superuser nor BYPASSRLS** (both skip RLS entirely). `alembic/env.py` refuses to

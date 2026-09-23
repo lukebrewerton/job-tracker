@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Sign-in with an OIDC provider (Google by default), via Authlib.
 
-Flow: /auth/login -> provider -> /auth/callback -> (session: JT-15) -> redirect to `next`.
+Flow: /auth/login -> provider -> /auth/callback -> new session -> redirect to `next`.
+Sign out with POST /auth/logout.
 
 - Identity is the provider's `sub`. Accounts are never merged by email, so a recycled
   email address can't inherit someone else's data.
@@ -13,12 +14,13 @@ Flow: /auth/login -> provider -> /auth/callback -> (session: JT-15) -> redirect 
 
 import html
 import logging
+import uuid
 from enum import StrEnum
 from typing import Any
 
 import httpx2
 from authlib.integrations.starlette_client import OAuth
-from fastapi import APIRouter, FastAPI, Request
+from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
@@ -26,6 +28,13 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.config import Settings
 from app.db import DbSession
 from app.redirects import safe_next
+from app.sessions import (
+    COOKIE_NAME,
+    clear_session_cookie,
+    create_session,
+    revoke_session,
+    set_session_cookie,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -128,21 +137,37 @@ async def callback(request: Request, session: DbSession) -> RedirectResponse:
         logger.info("sign-in refused", extra={"reason": "email not verified or not allowed"})
         return _denied(request, DeniedReason.NOT_AUTHORISED)
 
-    await _upsert_user(session, sub=str(userinfo["sub"]), email=email)
-    # JT-15: create the session and set the session cookie here.
-    return RedirectResponse(next_path, status_code=303)
+    user_id = await _upsert_user(session, sub=str(userinfo["sub"]), email=email)
+    token = await create_session(session, user_id, _settings(request))
+    response = RedirectResponse(next_path, status_code=303)
+    set_session_cookie(response, token, _settings(request))
+    return response
 
 
-async def _upsert_user(session: DbSession, *, sub: str, email: str) -> None:
+async def _upsert_user(session: DbSession, *, sub: str, email: str) -> uuid.UUID:
     """Create the user, or refresh their email if it has changed. Keyed on `sub` only."""
-    await session.execute(
-        text(
-            "INSERT INTO users (oidc_sub, email) VALUES (:sub, :email) "
-            "ON CONFLICT (oidc_sub) DO UPDATE SET email = EXCLUDED.email "
-            "WHERE users.email IS DISTINCT FROM EXCLUDED.email"
-        ),
-        {"sub": sub, "email": email},
-    )
+    user_id: uuid.UUID = (
+        await session.execute(
+            text(
+                "INSERT INTO users (oidc_sub, email) VALUES (:sub, :email) "
+                "ON CONFLICT (oidc_sub) DO UPDATE SET email = EXCLUDED.email "
+                "RETURNING id"
+            ),
+            {"sub": sub, "email": email},
+        )
+    ).scalar_one()
+    return user_id
+
+
+@router.post("/logout", status_code=204)
+async def logout(request: Request, session: DbSession) -> Response:
+    """End this session: delete it server-side and clear the cookie. Idempotent."""
+    token = request.cookies.get(COOKIE_NAME)
+    if token:
+        await revoke_session(session, token)
+    response = Response(status_code=204)
+    clear_session_cookie(response)
+    return response
 
 
 def _denied(request: Request, reason: DeniedReason) -> RedirectResponse:

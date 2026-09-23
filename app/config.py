@@ -6,7 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import AnyHttpUrl, Field, SecretStr, field_validator
+from pydantic import AnyHttpUrl, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 _DRIVER_SCHEME = "postgresql+psycopg://"
@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     session_secret: SecretStr
     # Who may sign in: comma-separated, case-insensitive. Required and non-empty.
     allowed_emails: Annotated[frozenset[str], NoDecode]
+    # Sessions expire after this many days without use, and at the latest this many days
+    # after sign-in, whichever comes first.
+    session_idle_days: int = Field(default=14, ge=1)
+    session_max_days: int = Field(default=90, ge=1)
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
@@ -58,6 +62,12 @@ class Settings(BaseSettings):
         if len(value.get_secret_value()) < 32:
             raise ValueError("SESSION_SECRET must be at least 32 characters")
         return value
+
+    @model_validator(mode="after")
+    def _idle_within_max(self) -> Settings:
+        if self.session_idle_days > self.session_max_days:
+            raise ValueError("SESSION_IDLE_DAYS can't exceed SESSION_MAX_DAYS")
+        return self
 
     @field_validator("allowed_emails", mode="before")
     @classmethod
