@@ -42,6 +42,12 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
   run otherwise. Never point `DATABASE_URL` at Neon's `neondb_owner` or Docker's
   `POSTGRES_USER`. New user-owned tables need `user_id`, RLS (`ENABLE` + `FORCE`) and a
   `user_isolation` policy in their migration, plus isolation tests.
+- **Sign-in** (`app/auth.py`): OIDC via Authlib. Identity is the provider's `sub` — never
+  merge accounts by email. Access needs `email_verified is True` AND an email in
+  `ALLOWED_EMAILS`. Redirect targets go through `app.redirects.safe_next()`. HTTP to the
+  provider uses **httpx2** (Authlib's preferred client; plain httpx is its deprecated
+  fallback). Tests fake the provider with an httpx2 `MockTransport` issuing real signed
+  tokens (`create_app(oidc_transport=...)`).
 - **Tests that touch the database** use the `test_db_url` / `db_engine` / `db_session`
   fixtures (a separate `<db>_test` database, rebuilt and migrated per run). They need
   `make up` locally and fail — not skip — without it.

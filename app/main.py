@@ -11,11 +11,13 @@ import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
+import httpx2
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import text
 
 from app import __version__
+from app.auth import install_auth
 from app.config import Settings, get_settings
 from app.db import create_engine, create_sessionmaker
 from app.logging_config import configure_logging
@@ -31,7 +33,9 @@ _READYZ_TIMEOUT_SECONDS = 5
 _HOST_REDIRECT_EXEMPT = {"/healthz"}
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None, *, oidc_transport: httpx2.AsyncBaseTransport | None = None
+) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level)
 
@@ -87,6 +91,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             logger.warning("readyz: database unavailable", exc_info=True)
             return JSONResponse({"status": "unavailable"}, status_code=503)
         return {"status": "ok"}
+
+    install_auth(app, settings, transport=oidc_transport)
 
     # Must be registered last: it catches every path the routes above don't.
     mount_spa(app, settings.static_dir)

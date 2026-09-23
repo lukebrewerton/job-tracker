@@ -35,7 +35,7 @@ def test_root_level_build_file_is_served(client: TestClient) -> None:
     assert resp.content == b"\x00\x00\x01\x00"
 
 
-@pytest.mark.parametrize("path", ["/api", "/api/jobs", "/api/does/not/exist", "/auth/login"])
+@pytest.mark.parametrize("path", ["/api", "/api/jobs", "/api/does/not/exist", "/auth/unknown"])
 def test_reserved_prefixes_are_not_swallowed(client: TestClient, path: str) -> None:
     resp = client.get(path)
     assert resp.status_code == 404
