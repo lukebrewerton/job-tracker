@@ -58,6 +58,8 @@ Targets come in pairs per stack (`-api`, `-web`); the bare name runs both.
 - `make lock` — regenerate `uv.lock` after changing Python dependencies
 - `make dev` / `make dev-web` — API on :8000 (needs `.env`) / Vite on :5173 (proxies `/api`, `/auth`)
 - `make build-web` — build the frontend into `frontend/dist`
+- `make up` / `make down` — local Postgres 18 in Docker (loopback only); `make db-reset` wipes it
+- `make image` / `make image-run` — build and run the production image locally (uses `.env`)
 - `make lint` — ruff + mypy, and oxlint (type-aware, incl. type-check) + prettier --check
 - `make format` — ruff fix/format and prettier --write
 - `make test` — pytest (and frontend tests once they exist)

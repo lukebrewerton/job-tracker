@@ -1,0 +1,16 @@
+# Copyright (C) 2026 Luke Brewerton
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Allow-list: ignore everything, then include only what the image needs. Keeps .env,
+# .git and local caches out of the build context by construction.
+*
+!app/
+!pyproject.toml
+!uv.lock
+!frontend/
+!.nvmrc
+
+frontend/node_modules
+frontend/dist
+**/__pycache__
+**/.DS_Store
