@@ -23,7 +23,7 @@ Node 24 (see `.nvmrc`; e.g. `fnm use`).
 ```sh
 cp .env.example .env   # then edit values
 make sync              # install backend and frontend dependencies
-make up                # local Postgres in Docker (make down to stop)
+make up                # local Postgres in Docker, with the app's DB role (make down to stop)
 make migrate           # apply database migrations
 make dev               # API on http://localhost:8000
 make dev-web           # frontend on http://localhost:5173 (proxies API calls to :8000)

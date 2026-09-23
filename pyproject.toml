@@ -39,6 +39,11 @@ select = ["E", "F", "I", "UP", "B", "C4", "SIM"]
 # E/F = pyflakes+pycodestyle, I = isort, UP = pyupgrade,
 # B = bugbear, C4 = comprehensions, SIM = simplify.
 
+[tool.ruff.lint.isort]
+# The repo's alembic/ migrations folder would otherwise make ruff treat the alembic
+# package as first-party.
+known-third-party = ["alembic"]
+
 [tool.ruff.lint.per-file-ignores]
 # Alembic autogenerates migrations; exempt them from import-order and line-length rules.
 "alembic/versions/*.py" = ["I001", "E501"]

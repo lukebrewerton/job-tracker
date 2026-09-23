@@ -15,13 +15,13 @@ from pathlib import Path
 
 import psycopg
 import pytest
+from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
-from alembic import command
 from app.config import Settings
 from app.main import create_app
 

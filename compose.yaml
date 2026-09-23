@@ -10,12 +10,17 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+      # The app's own role (non-superuser, no BYPASSRLS), created by the init script.
+      APP_DB_USER: ${APP_DB_USER:?set APP_DB_USER in .env}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}
     ports:
       # Loopback only: never expose the dev database to the LAN.
       - "127.0.0.1:5432:5432"
     volumes:
       # Postgres 18 images keep data under a versioned subdirectory of this path.
       - pgdata:/var/lib/postgresql
+      # Runs only when the volume is first created (`make db-reset` to re-run).
+      - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 2s
