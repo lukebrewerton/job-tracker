@@ -33,6 +33,12 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
   commit the updated `uv.lock`. The Docker build uses `uv sync --frozen`.
 - **All schema changes via Alembic.** Enums are `native_enum=False` (text + CHECK), not
   native Postgres enums.
+- **Database access:** routes take `DbSession` (`app/db.py`) — one transaction per request,
+  committed before the response is sent. Never commit/begin manually in a route. Row-level
+  security keys off `app.user_id`, set per transaction with `set_session_user()`.
+- **Tests that touch the database** use the `test_db_url` / `db_engine` / `db_session`
+  fixtures (a separate `<db>_test` database, rebuilt and migrated per run). They need
+  `make up` locally and fail — not skip — without it.
 - **SPDX header** as the first lines of every authored source file (before any
   docstring): `# Copyright (C) 2026 Luke Brewerton` /
   `# SPDX-License-Identifier: AGPL-3.0-or-later` for Python, `//` for TypeScript, `/* */` for
@@ -62,6 +68,7 @@ Targets come in pairs per stack (`-api`, `-web`); the bare name runs both.
 - `make dev` / `make dev-web` — API on :8000 (needs `.env`) / Vite on :5173 (proxies `/api`, `/auth`)
 - `make build-web` — build the frontend into `frontend/dist`
 - `make up` / `make down` — local Postgres 18 in Docker (loopback only); `make db-reset` wipes it
+- `make migrate` / `make migration m="…"` — apply migrations / autogenerate one from the models
 - `make image` / `make image-run` — build and run the production image locally (uses `.env`)
 - `make lint` — ruff + mypy, and oxlint (type-aware, incl. type-check) + prettier --check
 - `make format` — ruff fix/format and prettier --write

@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from app.config import Settings
 from app.main import create_app
 
-from .conftest import PUBLIC_BASE_URL
+from .conftest import PUBLIC_BASE_URL, UNREACHABLE_DB_URL
 
 
 @pytest.fixture
@@ -46,6 +46,11 @@ def test_canonical_host_is_not_redirected(client: TestClient) -> None:
 
 def test_port_difference_is_not_a_different_host(settings: Settings) -> None:
     # Local dev: Vite on :5173 proxies to FastAPI on :8000 with the same hostname.
-    local = Settings(public_base_url="http://localhost:8000", static_dir=settings.static_dir)
+    local = Settings(
+        public_base_url="http://localhost:8000",
+        static_dir=settings.static_dir,
+        database_url=UNREACHABLE_DB_URL,
+        _env_file=None,
+    )
     c = TestClient(create_app(local), base_url="http://localhost:5173", follow_redirects=False)
     assert c.get("/jobs").status_code == 200

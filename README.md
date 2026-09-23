@@ -24,15 +24,16 @@ Node 24 (see `.nvmrc`; e.g. `fnm use`).
 cp .env.example .env   # then edit values
 make sync              # install backend and frontend dependencies
 make up                # local Postgres in Docker (make down to stop)
+make migrate           # apply database migrations
 make dev               # API on http://localhost:8000
 make dev-web           # frontend on http://localhost:5173 (proxies API calls to :8000)
 make lint              # ruff + mypy, oxlint + prettier
-make test              # test suites
+make test              # test suites (needs `make up`: API tests use a real Postgres)
 ```
 
 Requires Docker for the local database and for `make image` (the production image).
-Run `make help` to list every target. More setup steps (migrations, sign-in) will be
-added as those pieces land.
+Run `make help` to list every target. More setup steps (sign-in) will be added as those
+pieces land.
 
 ## Secret scanning
 

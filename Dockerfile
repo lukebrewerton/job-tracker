@@ -34,12 +34,15 @@ WORKDIR /app
 # writes to its own filesystem.
 COPY --from=api-deps /app/.venv /app/.venv
 COPY app/ ./app/
+COPY alembic/ ./alembic/
+COPY alembic.ini ./
 COPY --from=web /build/frontend/dist ./frontend/dist
 ENV PATH=/app/.venv/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 USER app
 EXPOSE 8000
-# $PORT is provided by Render (defaults to 8000 locally). Proxy headers let the app see
-# the original https scheme behind Cloudflare/Render. Migrations join this line in JT-11.
-CMD ["sh", "-c", "exec uvicorn app.main:create_app --factory --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]
+# Migrations run first on every start (a no-op when already at head); Render's free tier
+# has no pre-deploy hook. $PORT is provided by Render (defaults to 8000 locally). Proxy
+# headers let the app see the original https scheme behind Cloudflare/Render.
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:create_app --factory --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]
