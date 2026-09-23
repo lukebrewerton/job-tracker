@@ -6,10 +6,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.config import Settings
 from app.main import create_app
 
-from .conftest import PUBLIC_BASE_URL
+from .conftest import PUBLIC_BASE_URL, make_settings
 
 
 @pytest.mark.parametrize("path", ["/", "/jobs", "/jobs/0190f1c2-7e4a/edit", "/interviews"])
@@ -56,7 +55,7 @@ def test_path_traversal_falls_back_to_index(client: TestClient, path: str) -> No
 
 
 def test_unbuilt_frontend_is_404_but_api_still_works(tmp_path: Path) -> None:
-    settings = Settings(public_base_url=PUBLIC_BASE_URL, static_dir=tmp_path / "nope")
+    settings = make_settings(tmp_path / "nope")
     c = TestClient(create_app(settings), base_url=PUBLIC_BASE_URL)
     assert c.get("/jobs").status_code == 404
     assert c.get("/healthz").status_code == 200

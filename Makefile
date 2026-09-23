@@ -1,6 +1,6 @@
 .PHONY: help sync sync-api sync-web lock dev dev-web build-web up down db-reset image image-run \
 	lint lint-api lint-web format format-api format-web test test-api test-web \
-	secrets-scan hooks hooks-off
+	secrets-scan hooks hooks-off migrate migration
 
 WEB := frontend
 
@@ -43,6 +43,13 @@ down: ## Stop local Postgres (data is kept)
 db-reset: ## DESTRUCTIVE: delete the local Postgres volume and start fresh
 	docker compose down --volumes
 	docker compose up -d --wait
+
+migrate: ## Apply database migrations (alembic upgrade head) using DATABASE_URL from .env
+	uv run alembic upgrade head
+
+migration: ## Autogenerate a migration from the models: make migration m="add jobs table"
+	@test -n "$(m)" || (echo 'Usage: make migration m="describe the change"' && exit 1)
+	uv run alembic revision --autogenerate -m "$(m)"
 
 # --- Production image ------------------------------------------------------------
 

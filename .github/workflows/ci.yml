@@ -47,6 +47,24 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+    # Throwaway database for the tests. Same image + digest as compose.yaml. The
+    # credentials are dummies that exist only inside this job — not secrets.
+    services:
+      postgres:
+        image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: jobtracker
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d jobtracker"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      DATABASE_URL: postgresql://ci:ci-only@localhost:5432/jobtracker
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

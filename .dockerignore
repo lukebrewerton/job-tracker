@@ -5,6 +5,8 @@
 # .git and local caches out of the build context by construction.
 *
 !app/
+!alembic/
+!alembic.ini
 !pyproject.toml
 !uv.lock
 !frontend/
