@@ -13,7 +13,9 @@ _DRIVER_SCHEME = "postgresql+psycopg://"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # hide_input_in_errors: a bad or missing setting must never echo values (a database
+    # password, the client secret) into the error, and so into the platform's logs.
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
 
     # The canonical origin this instance is served on, e.g. https://job-tracker.example.com.
     # Requests arriving on any other host are redirected here. Required: no default.
