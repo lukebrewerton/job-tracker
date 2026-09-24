@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     session_idle_days: int = Field(default=14, ge=1)
     session_max_days: int = Field(default=90, ge=1)
 
+    # Defaults to production so a missing setting fails safe (e.g. API docs stay off).
+    environment: Literal["development", "production"] = "production"
+
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
     # Directory holding the built frontend (Vite's `dist/`). The Docker image sets this.
@@ -80,6 +83,19 @@ class Settings(BaseSettings):
                 raise ValueError("ALLOWED_EMAILS must list at least one email address")
             return emails
         return value
+
+    @property
+    def is_development(self) -> bool:
+        return self.environment == "development"
+
+    @property
+    def public_origin(self) -> tuple[str, str]:
+        """(scheme, hostname) of PUBLIC_BASE_URL — what a same-origin request's Origin has.
+
+        Port is deliberately ignored, as in the host redirect: in development the browser
+        is on Vite's port while PUBLIC_BASE_URL is FastAPI's, on the same host.
+        """
+        return (self.public_base_url.scheme, self.public_host)
 
     @property
     def secure_cookies(self) -> bool:

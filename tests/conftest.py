@@ -10,6 +10,7 @@ Two kinds of test:
   They fail (not skip) if Postgres is unreachable: run `make up`.
 """
 
+import uuid
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 
@@ -17,6 +18,7 @@ import psycopg
 import pytest
 from alembic import command
 from alembic.config import Config
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
@@ -24,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 
 from app.config import Settings
 from app.main import create_app
+from app.sessions import CurrentUser, page_user
 
 PUBLIC_BASE_URL = "https://job-tracker.example.test"
 # Port 1 on loopback: nothing listens, so connecting fails fast.
@@ -66,9 +69,22 @@ def settings(static_dir: Path) -> Settings:
     return make_settings(static_dir)
 
 
+TEST_USER = CurrentUser(id=uuid.UUID("0190f1c2-7e4a-7abc-8def-0123456789ab"), email=ALLOWED_EMAIL)
+
+
+def signed_in(app: FastAPI) -> FastAPI:
+    """Treat page loads as signed in. For tests about serving pages, not about auth."""
+
+    async def _signed_in() -> CurrentUser:
+        return TEST_USER
+
+    app.dependency_overrides[page_user] = _signed_in
+    return app
+
+
 @pytest.fixture
 def client(settings: Settings) -> Iterator[TestClient]:
-    with TestClient(create_app(settings), base_url=PUBLIC_BASE_URL) as c:
+    with TestClient(signed_in(create_app(settings)), base_url=PUBLIC_BASE_URL) as c:
         yield c
 
 
