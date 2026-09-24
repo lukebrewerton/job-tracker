@@ -77,8 +77,11 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
 - CI (`.github/workflows/ci.yml`) runs jobs `lint-api`, `test-api`, `lint-web`, `test-web`,
   `docker-build`, `secrets-scan` — each calls the matching `make` target. Job names are
   required status checks: don't rename them without updating the ruleset.
-- **Never use `pull_request_target`**, and never let CI reference secrets. Deploys run
-  only from `push` to `main`, through the `production` environment.
+- **Never use `pull_request_target`**, and never let CI reference secrets.
+- **Deploys:** CI also runs on push to `main`, and Render (`render.yaml`,
+  `autoDeployTrigger: checksPass`) deploys a `main` commit only once every check on it
+  passes. No deploy hook or secret exists. Render's health check is `/healthz` — never
+  `/readyz`, which would keep Neon awake.
 - **Never commit secrets.** `.env` is git-ignored; if a secret is ever committed,
   rotate it — deleting the file isn't enough.
 

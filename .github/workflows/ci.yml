@@ -1,8 +1,11 @@
 # Copyright (C) 2026 Luke Brewerton
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# CI: lint, test and build every PR to main. Also callable from the deploy workflow
-# (workflow_call) so main is re-verified before a deploy.
+# CI: lint, test and build every PR to main, and re-run on every push to main.
+#
+# The push-to-main run is what gates deploys: Render (render.yaml: autoDeployTrigger:
+# checksPass) deploys a main commit only after EVERY check on it passes, and never a
+# commit with no checks. So each merge is re-verified on main before it can go live.
 #
 # Security rules (see CLAUDE.md):
 #   - Never pull_request_target: fork PRs must never run with secrets or a write token.
@@ -17,13 +20,16 @@ name: CI
 on:
   pull_request:
     branches: [main]
-  workflow_call:
+  push:
+    branches: [main]
 
 permissions: {}
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Superseded PR runs are cancelled; main runs always finish, so every merged commit
+  # gets a definitive result (a cancelled check would count as a failure for deploys).
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   lint-api:
