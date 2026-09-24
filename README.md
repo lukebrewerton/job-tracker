@@ -35,6 +35,26 @@ Requires Docker for the local database and for `make image` (the production imag
 Run `make help` to list every target. More setup steps (sign-in) will be added as those
 pieces land.
 
+## Deploying your own instance
+
+The repo includes a [Render](https://render.com) Blueprint (`render.yaml`): one Docker web
+service on the free plan, backed by a [Neon](https://neon.tech) Postgres database.
+
+1. **Database (Neon).** Create a project, then — in the SQL Editor, not the Roles page —
+   create a dedicated app role that is **not** a superuser and has **no BYPASSRLS** (either
+   would silently disable the per-user row-level security), and make it the database owner.
+   Use its **direct** (non-pooled) connection string as `DATABASE_URL`. Migrations refuse to
+   run as a role that would bypass row-level security.
+2. **Sign-in (Google).** Create an OAuth client (Web application) with the redirect URI
+   `<your public URL>/auth/callback`.
+3. **Render.** New → Blueprint → this repo. Enter the values it prompts for
+   (`PUBLIC_BASE_URL`, `DATABASE_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`,
+   `ALLOWED_EMAILS`); `SESSION_SECRET` is generated for you. Render deploys each commit on
+   `main` only after all its CI checks pass. Migrations run on every start.
+
+Render's health check uses `/healthz`, which never touches the database — so Neon can
+scale to zero when you're not using the app.
+
 ## Secret scanning
 
 Every PR is scanned for secrets (API keys, private keys, passwords, …) with
