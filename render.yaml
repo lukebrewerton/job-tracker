@@ -1,0 +1,51 @@
+# Copyright (C) 2026 Luke Brewerton
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Render Blueprint: one Docker web service, free plan. Create it from this file via
+# Render dashboard -> New -> Blueprint (in a dedicated workspace).
+#
+# Deploys: Render deploys a commit on `main` only after EVERY GitHub check on it passes
+# (autoDeployTrigger: checksPass) — CI re-runs on push to main for exactly this. A commit
+# with no checks, or any failing check, is never deployed. No deploy hook, no secret.
+#
+# Instance-specific values (your domain, email, credentials) are `sync: false`: entered
+# in the dashboard when the Blueprint is created, never committed.
+
+services:
+  - type: web
+    name: job-tracker
+    runtime: docker
+    plan: free
+    # Closest Render region to a London Neon database.
+    region: frankfurt
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeployTrigger: checksPass
+    # Liveness only — never /readyz, which queries the database: Render polls this
+    # continuously and would keep Neon awake 24/7, exhausting its free compute quota.
+    healthCheckPath: /healthz
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: OIDC_ISSUER
+        value: https://accounts.google.com
+      # Signs the short-lived sign-in cookie; Render generates a random 256-bit value.
+      - key: SESSION_SECRET
+        generateValue: true
+      # The public origin: this service's onrender.com URL at first, then your domain.
+      - key: PUBLIC_BASE_URL
+        sync: false
+      # Neon's DIRECT connection string for the non-superuser, non-BYPASSRLS app role
+      # (never the project owner role) — migrations refuse to run otherwise.
+      - key: DATABASE_URL
+        sync: false
+      - key: OIDC_CLIENT_ID
+        sync: false
+      - key: OIDC_CLIENT_SECRET
+        sync: false
+      # Who may sign in: comma-separated.
+      - key: ALLOWED_EMAILS
+        sync: false
