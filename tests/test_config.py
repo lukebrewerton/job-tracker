@@ -100,3 +100,26 @@ def test_allowed_emails_cannot_be_empty(given: str) -> None:
 )
 def test_cookies_are_secure_on_https(url: str, secure: bool) -> None:
     assert _settings(public_base_url=url).secure_cookies is secure
+
+
+def test_validation_errors_never_echo_values() -> None:
+    # A malformed DATABASE_URL must not leak its password (or any other setting) into the
+    # error, which ends up in the platform's logs.
+    with pytest.raises(ValidationError) as exc:
+        _settings(database_url="mysql://user:hunter2-password@db.example.test/jt")
+    message = str(exc.value)
+    assert "database_url" in message
+    for value in ("hunter2-password", "client-secret", "me@example.test", "jobs.example.test"):
+        assert value not in message
+
+
+def test_missing_setting_error_never_echoes_the_others(monkeypatch: pytest.MonkeyPatch) -> None:
+    for var, value in REQUIRED_ENV.items():
+        if var != "SESSION_SECRET":
+            monkeypatch.setenv(var, value)
+    with pytest.raises(ValidationError) as exc:
+        Settings(_env_file=None)
+    message = str(exc.value)
+    assert "session_secret" in message
+    for value in ("u:p@db", "client-secret", "me@example.test", "jobs.example.test"):
+        assert value not in message

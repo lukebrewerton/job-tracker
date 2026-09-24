@@ -17,6 +17,26 @@ _EXCLUDED_ATTRS = set(logging.makeLogRecord({}).__dict__) | {
 }
 
 
+# Paths whose query string never reaches the access log. The OIDC callback's carries the
+# one-time authorisation code and the state.
+_REDACTED_QUERY_PATHS = frozenset({"/auth/callback"})
+
+
+class RedactQueryFilter(logging.Filter):
+    """Replace the query string in uvicorn access-log lines for `_REDACTED_QUERY_PATHS`.
+
+    uvicorn logs `'%s - "%s %s HTTP/%s" %d'` with the path and query as the third argument.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if record.name == "uvicorn.access" and isinstance(args, tuple) and len(args) >= 3:
+            path, sep, _ = str(args[2]).partition("?")
+            if sep and path in _REDACTED_QUERY_PATHS:
+                record.args = (*args[:2], f"{path}?[redacted]", *args[3:])
+        return True
+
+
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
@@ -35,6 +55,7 @@ def configure_logging(level: str) -> None:
     """Route the root logger and uvicorn's loggers through a single JSON handler."""
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(JsonFormatter())
+    handler.addFilter(RedactQueryFilter())
 
     root = logging.getLogger()
     root.handlers = [handler]
