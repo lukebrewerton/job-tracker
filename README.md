@@ -29,6 +29,7 @@ make dev               # API on http://localhost:8000
 make dev-web           # frontend on http://localhost:5173 (proxies API calls to :8000)
 make lint              # ruff + mypy, oxlint + prettier
 make test              # test suites (needs `make up`: API tests use a real Postgres)
+make openapi types     # after changing the API: regenerate openapi.json, then the frontend types
 ```
 
 Requires Docker for the local database and for `make image` (the production image).

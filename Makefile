@@ -1,6 +1,6 @@
 .PHONY: help sync sync-api sync-web lock dev dev-web build-web up down db-reset image image-run \
 	lint lint-api lint-web format format-api format-web test test-api test-web \
-	secrets-scan hooks hooks-off migrate migration
+	secrets-scan hooks hooks-off migrate migration openapi openapi-check types types-check
 
 WEB := frontend
 
@@ -15,8 +15,9 @@ sync: sync-api sync-web ## Install backend and frontend dependencies from the lo
 sync-api: ## Create/update the Python virtualenv from uv.lock
 	uv sync --frozen
 
-sync-web: ## Install frontend dependencies from package-lock.json
+sync-web: ## Install frontend dependencies (and the type generator's) from their lockfiles
 	cd $(WEB) && npm ci
+	cd $(WEB)/codegen && npm ci
 
 lock: ## Regenerate uv.lock from pyproject.toml (run after changing Python deps)
 	uv lock
@@ -80,14 +81,35 @@ hooks-off: ## Opt out: disable the repo's git hooks for this clone
 
 lint: lint-api lint-web ## Lint, format-check and type-check everything
 
-lint-api: ## ruff check + ruff format --check + mypy
+lint-api: openapi-check ## ruff check + ruff format --check + mypy, and openapi.json is current
 	uv run ruff check .
 	uv run ruff format --check .
 	uv run mypy
 
-lint-web: ## oxlint (type-aware, incl. type-check) + prettier --check
+lint-web: types-check ## oxlint (type-aware, incl. type-check) + prettier --check, and types are current
 	cd $(WEB) && npm run lint
 	cd $(WEB) && npm run format:check
+
+# --- The API contract ----------------------------------------------------------
+# openapi.json (committed) is the contract between the backend and its clients. The
+# backend writes it; clients generate their types from it, never from backend code, so
+# the frontend's side works unchanged if it ever moves to its own repo (JT-49).
+
+openapi: ## Write openapi.json from the backend code (run after changing the API)
+	uv run python -m app.openapi_export > openapi.json
+
+openapi-check: ## Fail if openapi.json doesn't match the backend code
+	@uv run python -m app.openapi_export | diff -q openapi.json - > /dev/null \
+		|| { echo "openapi.json is out of date: run 'make openapi' and commit it."; exit 1; }
+
+types: ## Generate frontend/src/api/schema.ts from openapi.json (run after 'make openapi')
+	cd $(WEB)/codegen && npx --no-install openapi-typescript ../../openapi.json -o ../src/api/schema.ts
+
+types-check: ## Fail if frontend/src/api/schema.ts doesn't match openapi.json
+	@tmp=$$(mktemp -d) && \
+		(cd $(WEB)/codegen && npx --no-install openapi-typescript ../../openapi.json -o $$tmp/schema.ts > /dev/null) && \
+		diff -q $(WEB)/src/api/schema.ts $$tmp/schema.ts > /dev/null \
+		|| { echo "frontend/src/api/schema.ts is out of date: run 'make types' and commit it."; exit 1; }
 
 format: format-api format-web ## Auto-fix lint issues and format everything
 
@@ -105,5 +127,8 @@ test-api: ## Run the backend tests (pytest) with JUnit + Cobertura reports in re
 		--junitxml=reports/api/junit.xml \
 		--cov=app --cov-report=term --cov-report=xml:reports/api/coverage.xml
 
-test-web: ## Run the frontend tests
-	@echo "No frontend tests yet (Vitest arrives with the API client, JT-30)."
+test-web: ## Run the frontend tests (Vitest) with JUnit + Cobertura reports in reports/web/
+	cd $(WEB) && npx vitest run \
+		--reporter=default --reporter=junit --outputFile.junit=../reports/web/junit.xml \
+		--coverage --coverage.reporter=text-summary --coverage.reporter=cobertura \
+		--coverage.reportsDirectory=../reports/web/coverage

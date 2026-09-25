@@ -88,6 +88,24 @@ async def test_signed_in_page_load_gets_the_app(client: TestClient, db_engine: A
     assert "<div id=root>" in resp.text
 
 
+@pytest.mark.parametrize("url", ["/", "/?signed_out=1"])
+def test_the_front_page_is_public(client: TestClient, url: str) -> None:
+    # It shows "Sign in" when signed out, and is where logout lands.
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert "<div id=root>" in resp.text
+
+
+@pytest.mark.parametrize(
+    "path", ["/dashboard", "/jobs", "/interviews", "/jobs/new", "/%2F", "/%2Fjobs"]
+)
+def test_every_other_page_needs_a_session(client: TestClient, path: str) -> None:
+    # /%2F arrives as "//": only the exact front page is public, not look-alikes.
+    resp = client.get(path)
+    assert resp.status_code == 302
+    assert resp.headers["location"].startswith("/auth/login?next=")
+
+
 def test_extension_link_survives_the_full_sign_in_round_trip(
     client: TestClient, provider: FakeProvider
 ) -> None:

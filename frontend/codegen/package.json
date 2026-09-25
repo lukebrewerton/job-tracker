@@ -1,0 +1,10 @@
+{
+  "name": "job-tracker-codegen",
+  "private": true,
+  "description": "Generates frontend/src/api/schema.ts from openapi.json (make types). Separate from the app because openapi-typescript needs the TypeScript 5 compiler API, which TypeScript 7 no longer ships. Fold back into the frontend package once openapi-typescript supports TypeScript 7.",
+  "license": "AGPL-3.0-or-later",
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.9.3"
+  }
+}

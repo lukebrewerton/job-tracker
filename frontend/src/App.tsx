@@ -1,14 +1,23 @@
 // Copyright (C) 2026 Luke Brewerton
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
+import { createBrowserRouter, RouterProvider } from "react-router";
+import { Toaster } from "sonner";
 
-// Placeholder until the app shell (router, query client, layout) lands in JT-30.
+import { createQueryClient } from "./api/queryClient";
+import { WakingUp } from "./components/WakingUp";
+import { routes } from "./routes";
+
+const router = createBrowserRouter(routes);
+
 export default function App() {
+  const [queryClient] = useState(createQueryClient);
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-slate-50 p-4 text-slate-900">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold">Job Tracker</h1>
-        <p className="mt-2 text-slate-600">Under construction.</p>
-      </div>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+      <WakingUp />
+      <Toaster position="top-center" richColors closeButton />
+    </QueryClientProvider>
   );
 }

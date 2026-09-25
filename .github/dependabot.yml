@@ -48,6 +48,26 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
 
+  # The type generator (make types): pinned separately because openapi-typescript needs
+  # the TypeScript 5 compiler API, which TypeScript 7 (the app's) no longer ships.
+  - package-ecosystem: "npm"
+    directory: "/frontend/codegen"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+    groups:
+      codegen-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

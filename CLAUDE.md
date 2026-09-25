@@ -40,8 +40,17 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
 - **CSRF** (`app/security.py`): writes from a foreign `Origin` get 403; `POST/PUT/PATCH` to
   `/api` must be `application/json` (415). Needed because SameSite=Lax treats sibling
   `*.job-finder.dev` subdomains as the same site.
-- **Pages** need a session (else 302 to `/auth/login?next=…`); built files stay public.
-  API docs (`/api/docs`) exist only with `ENVIRONMENT=development`.
+- **Pages** need a session (else 302 to `/auth/login?next=…`), except the public front
+  page `/` (sign-in button when signed out; where logout lands). Built files stay public.
+  The dashboard is at `/dashboard`. API docs (`/api/docs`) exist only with
+  `ENVIRONMENT=development`.
+- **The API contract is the committed `openapi.json`** (repo root), written from the code
+  by `make openapi`. The frontend's types (`frontend/src/api/schema.ts`) are generated
+  **from that file**, never from backend code, by `make types`; call the API only through
+  the typed client in `frontend/src/api/client.ts`. After any API change: `make openapi`
+  then `make types`, and commit both (CI fails if either is stale). `frontend/codegen/` is
+  a separate package because the generator needs TypeScript 5's compiler API (the app is
+  on TS 7).
 - **Database access:** data routes take **`UserDbSession`** (`app/sessions.py`): the request's
   single transaction, committed before the response is sent, with `app.user_id` set to the
   signed-in user so row-level security only exposes their rows (unauthenticated → 401).
@@ -96,13 +105,16 @@ Targets come in pairs per stack (`-api`, `-web`); the bare name runs both.
 - `make up` / `make down` — local Postgres 18 in Docker (loopback only); `make db-reset` wipes it
 - `make migrate` / `make migration m="…"` — apply migrations / autogenerate one from the models
 - `make image` / `make image-run` — build and run the production image locally (uses `.env`)
-- `make lint` — ruff + mypy, and oxlint (type-aware, incl. type-check) + prettier --check
+- `make lint` — ruff + mypy, and oxlint (type-aware, incl. type-check) + prettier --check,
+  plus `openapi-check` / `types-check` (the contract files are current)
+- `make openapi` / `make types` — regenerate `openapi.json` from the code / the frontend
+  types from `openapi.json`
 - `make format` — ruff fix/format and prettier --write
 - `make secrets-scan` — gitleaks over the full git history (pinned Docker image, same as CI)
 - `make hooks` / `make hooks-off` — opt in/out of the pre-commit secrets hook (needs
   `brew install gitleaks`)
-- `make test` — pytest with JUnit + coverage reports in `reports/` (git-ignored), and frontend
-  tests once they exist
+- `make test` — pytest and Vitest, each with JUnit + coverage reports in `reports/`
+  (git-ignored)
 
 ## Definition of done (every change)
 
