@@ -212,7 +212,8 @@ class Interview(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid)
     # Nullable: "moved to interview stage, no date yet" is the common case.
     scheduled_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
-    mode: Mapped[InterviewMode] = mapped_column(_text_enum(InterviewMode, "interview_mode"))
+    # Nullable, like scheduled_at: often not known when the interview is first recorded.
+    mode: Mapped[InterviewMode | None] = mapped_column(_text_enum(InterviewMode, "interview_mode"))
     round_label: Mapped[str | None] = mapped_column(sa.Text)
     notes: Mapped[str | None] = mapped_column(sa.Text)
     created_at: Mapped[datetime] = _timestamp_now()

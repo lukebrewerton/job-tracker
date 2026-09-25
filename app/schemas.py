@@ -13,6 +13,7 @@ from typing import Annotated, Any, Self
 
 from pydantic import (
     AfterValidator,
+    AwareDatetime,
     BaseModel,
     BeforeValidator,
     ConfigDict,
@@ -22,7 +23,15 @@ from pydantic import (
 )
 from pydantic_core import PydanticCustomError
 
-from app.models import NAME_MAX, NOTES_MAX, SHORT_TEXT_MAX, URL_MAX, JobSource, JobStatus
+from app.models import (
+    NAME_MAX,
+    NOTES_MAX,
+    SHORT_TEXT_MAX,
+    URL_MAX,
+    InterviewMode,
+    JobSource,
+    JobStatus,
+)
 from app.timezones import TIMEZONE_MAX, is_valid_timezone
 from app.urls import canonicalise_url
 
@@ -202,3 +211,45 @@ class TimezoneUpdate(_Input):
 
 class TimezoneOut(BaseModel):
     timezone: str
+
+
+# --- Interviews -------------------------------------------------------------------------------
+
+
+class InterviewCreate(_Input):
+    # Must include an offset (e.g. +01:00): without one, when it is can't be known.
+    scheduled_at: AwareDatetime | None = None
+    mode: InterviewMode | None = None
+    round_label: ShortText = None  # free text; the UI offers presets plus "Other…"
+    notes: Notes = None
+
+
+class InterviewUpdate(InterviewCreate):
+    """A partial update: only the fields sent change, and null clears a field."""
+
+
+class InterviewOut(BaseModel):
+    id: uuid.UUID
+    job_id: uuid.UUID
+    scheduled_at: datetime | None
+    mode: InterviewMode | None
+    round_label: str | None
+    notes: str | None
+    created_at: datetime
+
+
+class JobSummary(BaseModel):
+    id: uuid.UUID
+    company: str
+    role: str
+    status: JobStatus
+
+
+class InterviewWithJob(InterviewOut):
+    job: JobSummary
+
+
+class InterviewGroups(BaseModel):
+    upcoming: list[InterviewWithJob]  # soonest first
+    not_yet_scheduled: list[InterviewWithJob]  # active jobs only, oldest first
+    past: list[InterviewWithJob]  # most recent first

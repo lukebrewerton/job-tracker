@@ -59,6 +59,10 @@ class IsolationCase:
     check: Check | None = None
     # Creates B's own data (row-level security scoped to B), e.g. to mix B's IDs in.
     arrange_bob: Arrange | None = None
+    # Which IDs go in the URL, from the params; by default the params themselves.
+    path_params: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    # Names an extra scenario for a route that already has its main case.
+    variant: str = ""
 
     @property
     def key(self) -> tuple[str, str]:
@@ -66,12 +70,20 @@ class IsolationCase:
 
 
 CASES: dict[tuple[str, str], IsolationCase] = {}
+# More scenarios for routes that already have their main case in CASES.
+EXTRA_CASES: list[IsolationCase] = []
 
 
 def register(case: IsolationCase, registry: dict[tuple[str, str], IsolationCase] = CASES) -> None:
     if case.key in registry:
         raise ValueError(f"Duplicate isolation case for {case.key}")
     registry[case.key] = case
+
+
+def register_extra(case: IsolationCase) -> None:
+    if not case.variant:
+        raise ValueError(f"An extra case for {case.key} needs a variant name")
+    EXTRA_CASES.append(case)
 
 
 def api_routes(app: FastAPI) -> set[tuple[str, str]]:
@@ -153,12 +165,12 @@ async def run_case(client: TestClient, engine: AsyncEngine, case: IsolationCase)
     body = case.body(params) if callable(case.body) else case.body
     resp = client.request(
         case.method,
-        case.path.format(**params),
+        case.path.format(**(case.path_params(params) if case.path_params else params)),
         headers={"cookie": f"{COOKIE_NAME}={bob_token}"},
         params=case.query,
         json=body if case.method in {"POST", "PUT", "PATCH"} else None,
     )
-    where = f"{case.method} {case.path}"
+    where = f"{case.method} {case.path}" + (f" ({case.variant})" if case.variant else "")
     assert resp.status_code != 401, f"{where}: B's session was rejected; isolation untested"
     if case.expect == NOT_FOUND:
         assert resp.status_code == 404, f"{where}: expected 404, got {resp.status_code}"
@@ -314,3 +326,69 @@ for _case in (
     ),
 ):
     register(_case)
+
+
+# --- Cases: interviews (JT-27) ------------------------------------------------------------
+
+
+async def _alices_interviews(conn: AsyncConnection, alice: uuid.UUID) -> dict[str, Any]:
+    """A's job, with one interview in each group: upcoming, not yet scheduled, and past."""
+    params = await _alices_job(conn, alice)
+    ids = []
+    for scheduled in ("now() + interval '3 days'", "NULL", "now() - interval '3 days'"):
+        ids.append(
+            (
+                await conn.execute(
+                    text(
+                        "INSERT INTO interviews (job_id, user_id, scheduled_at, mode) "
+                        f"VALUES (:j, :u, {scheduled}, 'phone') RETURNING id"
+                    ),
+                    {"j": params["job_id"], "u": alice},
+                )
+            ).scalar_one()
+        )
+    return {**params, "interview_id": ids[0]}
+
+
+def _no_interviews(groups: Any) -> bool:
+    return groups == {"upcoming": [], "not_yet_scheduled": [], "past": []}
+
+
+def _under_bobs_own_job(params: dict[str, Any]) -> dict[str, Any]:
+    return {"job_id": params["bobs_job_id"], "interview_id": params["interview_id"]}
+
+
+_ONE_INTERVIEW = "/api/jobs/{job_id}/interviews/{interview_id}"
+_INTERVIEW_BODIES = {"GET": None, "PATCH": {"notes": "B was here"}, "DELETE": None}
+
+for _case in (
+    IsolationCase("GET", "/api/interviews", _alices_interviews, EMPTY, is_empty=_no_interviews),
+    IsolationCase("GET", "/api/jobs/{job_id}/interviews", _alices_interviews, NOT_FOUND),
+    IsolationCase(
+        "POST",
+        "/api/jobs/{job_id}/interviews",
+        _alices_interviews,
+        NOT_FOUND,
+        body={"mode": "phone"},
+    ),
+    *(
+        IsolationCase(method, _ONE_INTERVIEW, _alices_interviews, NOT_FOUND, body=body)
+        for method, body in _INTERVIEW_BODIES.items()
+    ),
+):
+    register(_case)
+
+# A's interview put under one of B's own jobs is still not B's.
+for _method, _body in _INTERVIEW_BODIES.items():
+    register_extra(
+        IsolationCase(
+            _method,
+            _ONE_INTERVIEW,
+            _alices_interviews,
+            NOT_FOUND,
+            body=_body,
+            arrange_bob=_bobs_own_job,
+            path_params=_under_bobs_own_job,
+            variant="A's interview under B's own job",
+        )
+    )
