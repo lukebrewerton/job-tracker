@@ -123,7 +123,7 @@ async def create_job(
 ) -> JobOut | JSONResponse:
     """Create a job. 409 with the existing job's id if you already track this URL."""
     try:
-        row = await jobs.create_job(db, user.id, body.model_dump(), today=jobs.utc_today())
+        row = await jobs.create_job(db, user.id, body.model_dump(), today=user.today())
     except jobs.DuplicateJobError as exc:
         return _duplicate(exc)
     return _out(row)

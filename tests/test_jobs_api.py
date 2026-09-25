@@ -5,7 +5,7 @@ duplicates, and company matching. Cross-user isolation is in test_isolation.py."
 
 import uuid
 from collections.abc import Iterator
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from app import jobs
+from app import jobs, timezones
 from app.db import set_session_user
 from app.main import create_app
 from app.schemas import SAVED_WITH_APPLIED_AT
@@ -81,7 +81,7 @@ def test_create_trims_text_and_stores_blank_optionals_as_null(api: TestClient) -
 
 
 def test_create_as_applied_fills_in_today(api: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(jobs, "utc_today", lambda: date(2026, 9, 25))
+    monkeypatch.setattr(timezones, "now", lambda: datetime(2026, 9, 25, 12, 0, tzinfo=UTC))
     assert _create(api, status="applied")["applied_at"] == "2026-09-25"
 
 

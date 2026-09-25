@@ -20,6 +20,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
+from app.timezones import DEFAULT_TIMEZONE, TIMEZONE_MAX
 
 # Length limits: a last line of defence. The API validates the same limits with
 # friendly errors.
@@ -94,12 +95,15 @@ class User(Base):
         sa.CheckConstraint("email = lower(email)", name="email_lowercase"),
         _max_len("email", SHORT_TEXT_MAX),
         _max_len("oidc_sub", 255),
+        _max_len("timezone", TIMEZONE_MAX),
     )
 
     id: Mapped[uuid.UUID] = _uuid_pk()
     # The issuer's stable subject identifier: the identity key (email is not).
     oidc_sub: Mapped[str] = mapped_column(sa.Text, unique=True)
     email: Mapped[str] = mapped_column(sa.Text)
+    # IANA zone (e.g. Europe/London) for server-side calendar dates; see app/timezones.py.
+    timezone: Mapped[str] = mapped_column(sa.Text, server_default=DEFAULT_TIMEZONE)
     created_at: Mapped[datetime] = _timestamp_now()
 
 

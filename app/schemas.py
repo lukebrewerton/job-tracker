@@ -11,10 +11,18 @@ import uuid
 from datetime import date, datetime
 from typing import Annotated, Any, Self
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, StringConstraints, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    StringConstraints,
+    model_validator,
+)
 from pydantic_core import PydanticCustomError
 
 from app.models import NAME_MAX, NOTES_MAX, SHORT_TEXT_MAX, URL_MAX, JobSource, JobStatus
+from app.timezones import TIMEZONE_MAX, is_valid_timezone
 from app.urls import canonicalise_url
 
 SAVED_WITH_APPLIED_AT = "A saved job can't have an applied date: it hasn't been applied for yet"
@@ -142,3 +150,29 @@ class CompanyMatch(BaseModel):
 
 class CompanyMatches(BaseModel):
     companies: list[CompanyMatch]
+
+
+# --- The current user -------------------------------------------------------------------------
+
+
+def _valid_timezone(value: Any) -> Any:
+    if isinstance(value, str) and not is_valid_timezone(value):
+        raise PydanticCustomError(
+            "timezone", "Unknown time zone: use an IANA name such as Europe/London"
+        )
+    return value
+
+
+class Me(BaseModel):
+    email: str
+    timezone: str
+
+
+class TimezoneUpdate(_Input):
+    timezone: Annotated[
+        str, StringConstraints(max_length=TIMEZONE_MAX), AfterValidator(_valid_timezone)
+    ]
+
+
+class TimezoneOut(BaseModel):
+    timezone: str
