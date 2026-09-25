@@ -5,13 +5,8 @@ import type { RouteObject } from "react-router";
 import { Layout } from "./components/Layout";
 import { Home } from "./pages/Home";
 import { NotFound } from "./pages/NotFound";
-import {
-  Dashboard,
-  Interviews,
-  JobDetail,
-  Jobs,
-  NewJob,
-} from "./pages/Placeholder";
+import { JobsPage } from "./pages/jobs/JobsPage";
+import { Dashboard, Interviews, JobDetail, NewJob } from "./pages/Placeholder";
 
 // Only "/" works signed out; the server sends every other page to sign in first
 // (app/spa.py), and the API client does the same on a 401.
@@ -21,7 +16,7 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <Home /> },
       { path: "dashboard", element: <Dashboard /> },
-      { path: "jobs", element: <Jobs /> },
+      { path: "jobs", element: <JobsPage /> },
       { path: "jobs/new", element: <NewJob /> },
       { path: "jobs/:id", element: <JobDetail /> },
       { path: "interviews", element: <Interviews /> },

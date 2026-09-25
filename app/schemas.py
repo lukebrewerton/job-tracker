@@ -9,7 +9,7 @@ is stored as null. Unknown fields are rejected, so a typo is an error, not a no-
 
 import uuid
 from datetime import date, datetime
-from typing import Annotated, Any, Self
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import (
     AfterValidator,
@@ -135,6 +135,10 @@ class JobOut(BaseModel):
     updated_at: datetime
     # When the status last changed (the latest status_history entry).
     last_status_change_at: datetime
+    # Whole calendar days since then, in the user's time zone.
+    days_since_last_change: int
+    # The dashboard list this job is in, if any (the same rule as the dashboard).
+    attention: Literal["needs_follow_up", "still_to_apply", "no_response"] | None
 
 
 class JobPage(BaseModel):

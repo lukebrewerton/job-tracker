@@ -719,6 +719,22 @@
             ],
             "title": "Applied At"
           },
+          "attention": {
+            "anyOf": [
+              {
+                "enum": [
+                  "needs_follow_up",
+                  "still_to_apply",
+                  "no_response"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attention"
+          },
           "company": {
             "title": "Company",
             "type": "string"
@@ -749,6 +765,10 @@
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "days_since_last_change": {
+            "title": "Days Since Last Change",
+            "type": "integer"
           },
           "id": {
             "format": "uuid",
@@ -842,7 +862,9 @@
           "notes",
           "created_at",
           "updated_at",
-          "last_status_change_at"
+          "last_status_change_at",
+          "days_since_last_change",
+          "attention"
         ],
         "title": "JobOut",
         "type": "object"

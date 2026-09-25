@@ -1,6 +1,6 @@
 .PHONY: help sync sync-api sync-web lock dev dev-web build-web up down db-reset image image-run \
 	lint lint-api lint-web format format-api format-web test test-api test-web \
-	secrets-scan hooks hooks-off migrate migration openapi openapi-check types types-check
+	secrets-scan hooks hooks-off migrate migration seed openapi openapi-check types types-check
 
 WEB := frontend
 
@@ -89,6 +89,10 @@ lint-api: openapi-check ## ruff check + ruff format --check + mypy, and openapi.
 lint-web: types-check ## oxlint (type-aware, incl. type-check) + prettier --check, and types are current
 	cd $(WEB) && npm run lint
 	cd $(WEB) && npm run format:check
+
+seed: ## Add ~60 sample jobs to a local user (development only): make seed EMAIL=you@example.com
+	@test -n "$(EMAIL)" || { echo "Usage: make seed EMAIL=you@example.com"; exit 1; }
+	uv run python -m app.dev_seed "$(EMAIL)"
 
 # --- The API contract ----------------------------------------------------------
 # openapi.json (committed) is the contract between the backend and its clients. The

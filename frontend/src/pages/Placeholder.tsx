@@ -13,7 +13,6 @@ function Placeholder({ title, ticket }: { title: string; ticket: string }) {
 }
 
 export const Dashboard = () => <Placeholder title="Dashboard" ticket="JT-36" />;
-export const Jobs = () => <Placeholder title="Jobs" ticket="JT-31" />;
 export const NewJob = () => <Placeholder title="New job" ticket="JT-32" />;
 export const Interviews = () => (
   <Placeholder title="Interviews" ticket="JT-35" />
