@@ -6,6 +6,7 @@ Cross-user isolation is in test_isolation.py.
 """
 
 import uuid
+import zoneinfo
 from collections.abc import Iterator
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -133,3 +134,19 @@ def test_valid_timezones_are_the_iana_names() -> None:
     assert timezones.is_valid_timezone("Europe/London")
     assert timezones.is_valid_timezone("UTC")
     assert not timezones.is_valid_timezone("localtime")
+
+
+def test_valid_timezones_ignore_the_hosts_zone_directory(tmp_path: Path) -> None:
+    # A system zone directory with extra files (as on Ubuntu) must change nothing.
+    (tmp_path / "localtime").write_bytes(b"TZif")
+    (tmp_path / "Europe").mkdir()
+    (tmp_path / "Europe" / "Nowhere").write_bytes(b"TZif")
+    zoneinfo.reset_tzpath([str(tmp_path)])
+    timezones.valid_timezones.cache_clear()
+    try:
+        assert not timezones.is_valid_timezone("localtime")
+        assert not timezones.is_valid_timezone("Europe/Nowhere")
+        assert timezones.is_valid_timezone("Europe/London")
+    finally:
+        zoneinfo.reset_tzpath()
+        timezones.valid_timezones.cache_clear()

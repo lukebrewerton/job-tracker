@@ -10,7 +10,8 @@ different zones, so the zone is stored per user (users.timezone), never per depl
 
 from datetime import UTC, date, datetime
 from functools import cache
-from zoneinfo import ZoneInfo, available_timezones
+from importlib.resources import files
+from zoneinfo import ZoneInfo
 
 DEFAULT_TIMEZONE = "UTC"
 TIMEZONE_MAX = 64
@@ -18,8 +19,13 @@ TIMEZONE_MAX = 64
 
 @cache
 def valid_timezones() -> frozenset[str]:
-    """The IANA zone names, e.g. Europe/London (not odd-but-loadable ones like localtime)."""
-    return frozenset(available_timezones())
+    """The IANA zone names, e.g. Europe/London, from the bundled tzdata package.
+
+    Not `zoneinfo.available_timezones()`: that also scans the system's zone directory,
+    which varies by host (Ubuntu's includes a `localtime` file, macOS's doesn't), so
+    what counted as valid would differ between machines.
+    """
+    return frozenset(files("tzdata").joinpath("zones").read_text().split())
 
 
 def is_valid_timezone(name: str) -> bool:
