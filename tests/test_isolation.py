@@ -26,6 +26,7 @@ from .conftest import PUBLIC_BASE_URL, make_settings
 from .isolation import (
     CASES,
     EMPTY,
+    EXTRA_CASES,
     NOT_FOUND,
     IsolationCase,
     api_routes,
@@ -86,8 +87,9 @@ def test_every_api_route_requires_a_session(
 
 @pytest.mark.parametrize(
     "case",
-    list(CASES.values()) or [pytest.param(None, marks=pytest.mark.skip("no /api routes yet"))],
-    ids=lambda c: f"{c.method} {c.path}" if c else "none",
+    [*CASES.values(), *EXTRA_CASES]
+    or [pytest.param(None, marks=pytest.mark.skip("no /api routes yet"))],
+    ids=lambda c: f"{c.method} {c.path}{f' ({c.variant})' if c.variant else ''}" if c else "none",
 )
 async def test_other_users_data_is_never_exposed(
     app: FastAPI, db_engine: AsyncEngine, case: IsolationCase | None
