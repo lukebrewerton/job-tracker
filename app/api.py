@@ -10,6 +10,8 @@ Tests enumerate every /api route to check both the 401 and cross-user isolation.
 
 from fastapi import APIRouter, Depends
 
+from app.routes import jobs
 from app.sessions import current_user
 
 api_router = APIRouter(prefix="/api", dependencies=[Depends(current_user)])
+api_router.include_router(jobs.router)

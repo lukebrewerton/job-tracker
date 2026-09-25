@@ -133,6 +133,10 @@ class Job(Base):
             postgresql_where=sa.text("url_canonical IS NOT NULL"),
         ),
         sa.Index("ix_jobs_user_id_status", "user_id", "status"),
+        # `saved` means "not applied yet": a saved job can't have an applied date.
+        sa.CheckConstraint(
+            "status <> 'saved' OR applied_at IS NULL", name="saved_has_no_applied_at"
+        ),
         _not_blank("company"),
         _not_blank("role"),
         _max_len("company", NAME_MAX),
