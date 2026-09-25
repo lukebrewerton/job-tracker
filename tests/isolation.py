@@ -17,6 +17,7 @@ import hashlib
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import date
 from typing import Any, Literal
 
 from fastapi import FastAPI
@@ -392,3 +393,52 @@ for _method, _body in _INTERVIEW_BODIES.items():
             variant="A's interview under B's own job",
         )
     )
+
+
+# --- Cases: dashboard (JT-28) -------------------------------------------------------------
+
+
+async def _alices_busy_dashboard(conn: AsyncConnection, alice: uuid.UUID) -> dict[str, Any]:
+    """A's data in every part of the dashboard: each list, each count, and interviews."""
+    params = await _alices_interviews(conn, alice)  # an applied job with interviews
+    for status, days_ago, was_interviewing in (
+        ("saved", 10, False),  # still to apply
+        ("applied", 10, False),  # needs follow-up
+        ("applied", 30, False),  # no response?
+        ("offer", 30, False),  # needs follow-up
+        ("rejected", 5, True),  # rejected after interview
+    ):
+        job_id = (
+            await conn.execute(
+                text(
+                    "INSERT INTO jobs (user_id, company, role, status, applied_at) "
+                    "VALUES (:u, 'Initech', 'Engineer', :s, :applied) RETURNING id"
+                ),
+                {"u": alice, "s": status, "applied": None if status == "saved" else date.today()},
+            )
+        ).scalar_one()
+        for history_status in ("interviewing", status) if was_interviewing else (status,):
+            await conn.execute(
+                text(
+                    "INSERT INTO status_history (job_id, user_id, status, changed_at) "
+                    "VALUES (:j, :u, :s, now() - make_interval(days => :d))"
+                ),
+                {"j": job_id, "u": alice, "s": history_status, "d": days_ago},
+            )
+    return params
+
+
+def _empty_dashboard(payload: Any) -> bool:
+    return (
+        not any(payload["counts"].values())
+        and payload["needs_follow_up"] == []
+        and payload["still_to_apply"] == []
+        and payload["no_response_candidates"] == []
+        and payload["upcoming_interviews"] == []
+        and payload["upcoming_interviews_total"] == 0
+    )
+
+
+register(
+    IsolationCase("GET", "/api/dashboard", _alices_busy_dashboard, EMPTY, is_empty=_empty_dashboard)
+)

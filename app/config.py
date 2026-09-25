@@ -41,6 +41,13 @@ class Settings(BaseSettings):
     session_idle_days: int = Field(default=14, ge=1)
     session_max_days: int = Field(default=90, ge=1)
 
+    # --- Dashboard ---
+    # Days without a status change before a job needs attention: an applied or offer job
+    # needs a follow-up, and a saved job is still to apply for. After NO_RESPONSE_AFTER_DAYS
+    # an applied job is suggested as "no response" instead of a follow-up.
+    stale_after_days: int = Field(default=7, ge=1)
+    no_response_after_days: int = Field(default=14, ge=1)
+
     # Defaults to production so a missing setting fails safe (e.g. API docs stay off).
     environment: Literal["development", "production"] = "production"
 
@@ -72,6 +79,12 @@ class Settings(BaseSettings):
     def _idle_within_max(self) -> Settings:
         if self.session_idle_days > self.session_max_days:
             raise ValueError("SESSION_IDLE_DAYS can't exceed SESSION_MAX_DAYS")
+        return self
+
+    @model_validator(mode="after")
+    def _stale_before_no_response(self) -> Settings:
+        if self.no_response_after_days <= self.stale_after_days:
+            raise ValueError("NO_RESPONSE_AFTER_DAYS must be greater than STALE_AFTER_DAYS")
         return self
 
     @field_validator("allowed_emails", mode="before")

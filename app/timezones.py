@@ -40,3 +40,8 @@ def now() -> datetime:
 def today_in(timezone: str) -> date:
     """Today's date in the zone, with daylight saving handled."""
     return now().astimezone(ZoneInfo(timezone)).date()
+
+
+def date_in(moment: datetime, timezone: str) -> date:
+    """The calendar date of an instant, in the zone."""
+    return moment.astimezone(ZoneInfo(timezone)).date()
