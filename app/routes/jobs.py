@@ -18,13 +18,17 @@ from pydantic_core import PydanticCustomError
 from app import jobs
 from app.schemas import (
     SAVED_WITH_APPLIED_AT,
+    BulkStatusChange,
+    BulkStatusResult,
     CompanyMatch,
     CompanyMatches,
     DuplicateJob,
+    HistoryEntry,
     JobCreate,
     JobOut,
     JobPage,
     JobUpdate,
+    StatusChange,
 )
 from app.sessions import CurrentUserDep, UserDbSession
 
@@ -151,6 +155,22 @@ async def company_matches(
     )
 
 
+# Also before /{job_id}.
+@router.post("/bulk-status")
+async def bulk_change_status(
+    user: CurrentUserDep, db: UserDbSession, body: BulkStatusChange
+) -> BulkStatusResult:
+    """Set many jobs' status at once (e.g. "Mark all as no response"), all or nothing.
+
+    Only your own jobs are changed: any other ID is reported in `not_found` and never
+    touched. Jobs already in the status are reported in `unchanged`.
+    """
+    result = await jobs.bulk_change_status(db, user.id, body.ids, body.status, today=user.today())
+    return BulkStatusResult(
+        updated=result.updated, unchanged=result.unchanged, not_found=result.not_found
+    )
+
+
 @router.get("/{job_id}")
 async def get_job(user: CurrentUserDep, db: UserDbSession, job_id: uuid.UUID) -> JobOut:
     row = await jobs.get_job(db, user.id, job_id)
@@ -190,3 +210,30 @@ async def delete_job(user: CurrentUserDep, db: UserDbSession, job_id: uuid.UUID)
     if not await jobs.delete_job(db, user.id, job_id):
         raise _NOT_FOUND
     return Response(status_code=204)
+
+
+@router.post("/{job_id}/status")
+async def change_status(
+    user: CurrentUserDep, db: UserDbSession, job_id: uuid.UUID, body: StatusChange
+) -> JobOut:
+    """Change a job's status, recording it in the history.
+
+    Any status can move to any other. Setting the status it already has changes nothing.
+    Becoming `applied` fills in today's date (in your time zone) if there's none;
+    going back to `saved` clears it.
+    """
+    row = await jobs.change_status(db, user.id, job_id, body.status, today=user.today())
+    if row is None:
+        raise _NOT_FOUND
+    return _out(row)
+
+
+@router.get("/{job_id}/history")
+async def status_history(
+    user: CurrentUserDep, db: UserDbSession, job_id: uuid.UUID
+) -> list[HistoryEntry]:
+    """The job's status changes, newest first."""
+    history = await jobs.status_history(db, user.id, job_id)
+    if history is None:
+        raise _NOT_FOUND
+    return [HistoryEntry(status=h.status, changed_at=h.changed_at) for h in history]

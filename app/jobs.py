@@ -174,6 +174,110 @@ async def record_status(db: AsyncSession, job: Job) -> None:
     await db.flush()
 
 
+def applied_at_for(status: JobStatus, applied_at: date | None, *, today: date) -> date | None:
+    """The applied date a job should have once it's in `status`.
+
+    - `saved` means not applied yet, so it has none (reverting to saved clears it).
+    - Becoming `applied` fills in today when there's no date; an existing one is kept,
+      so applied → interviewing → applied doesn't overwrite the original.
+    - Any other status keeps whatever it has: no date is invented for a job that was
+      never applied for (e.g. a recruiter approach straight to interview).
+    """
+    if status == JobStatus.SAVED:
+        return None
+    if status == JobStatus.APPLIED and applied_at is None:
+        return today
+    return applied_at
+
+
+async def _set_status(db: AsyncSession, job: Job, status: JobStatus, *, today: date) -> bool:
+    """Move a job to `status`, recording the change. False if it already had it."""
+    if job.status == status:
+        return False
+    job.status = status
+    job.applied_at = applied_at_for(status, job.applied_at, today=today)
+    await db.flush()
+    await record_status(db, job)
+    return True
+
+
+def _select_for_status_change(user_id: uuid.UUID) -> sa.Select[tuple[Job]]:
+    # Locked until the transaction ends, so two concurrent changes to one job can't
+    # both see the old status and both record what is really a single change.
+    return sa.select(Job).where(Job.user_id == user_id).with_for_update()
+
+
+async def change_status(
+    db: AsyncSession, user_id: uuid.UUID, job_id: uuid.UUID, status: JobStatus, *, today: date
+) -> JobRow | None:
+    """Set one job's status. None if it isn't this user's job (or doesn't exist)."""
+    job = (
+        await db.execute(_select_for_status_change(user_id).where(Job.id == job_id))
+    ).scalar_one_or_none()
+    if job is None:
+        return None
+    await _set_status(db, job, status, today=today)
+    return await get_job(db, user_id, job.id)
+
+
+@dataclass(frozen=True)
+class BulkStatusResult:
+    updated: list[uuid.UUID]
+    unchanged: list[uuid.UUID]  # already had the status: no history written
+    not_found: list[uuid.UUID]  # not this user's, or doesn't exist (indistinguishable)
+
+
+async def bulk_change_status(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    job_ids: list[uuid.UUID],
+    status: JobStatus,
+    *,
+    today: date,
+) -> BulkStatusResult:
+    """Set many jobs' status in one transaction.
+
+    The IDs are filtered to this user's jobs *before* anything changes: another user's
+    ID is reported as not found and never touched.
+    """
+    wanted = list(dict.fromkeys(job_ids))  # de-duplicated, in the order given
+    found = {
+        job.id: job
+        for job in (
+            await db.execute(
+                _select_for_status_change(user_id).where(Job.id.in_(wanted)).order_by(Job.id)
+            )
+        ).scalars()
+    }
+    updated: list[uuid.UUID] = []
+    unchanged: list[uuid.UUID] = []
+    not_found: list[uuid.UUID] = []
+    for job_id in wanted:
+        job = found.get(job_id)
+        if job is None:
+            not_found.append(job_id)
+        elif await _set_status(db, job, status, today=today):
+            updated.append(job_id)
+        else:
+            unchanged.append(job_id)
+    return BulkStatusResult(updated, unchanged, not_found)
+
+
+async def status_history(
+    db: AsyncSession, user_id: uuid.UUID, job_id: uuid.UUID
+) -> list[StatusHistory] | None:
+    """A job's status changes, newest first. None if it isn't this user's job."""
+    owned = await db.execute(sa.select(Job.id).where(Job.id == job_id, Job.user_id == user_id))
+    if owned.scalar_one_or_none() is None:
+        return None
+    rows = await db.execute(
+        sa.select(StatusHistory)
+        .where(StatusHistory.job_id == job_id, StatusHistory.user_id == user_id)
+        .order_by(StatusHistory.changed_at.desc(), StatusHistory.id.desc())
+    )
+    return list(rows.scalars())
+
+
 async def create_job(
     db: AsyncSession, user_id: uuid.UUID, fields: Mapping[str, Any], *, today: date
 ) -> JobRow:
@@ -186,8 +290,7 @@ async def create_job(
         job.url_canonical = canonicalise_url(job.url)
         if existing := await _existing_with_url(db, user_id, job.url_canonical, excluding=None):
             raise DuplicateJobError(existing)
-    if job.status == JobStatus.APPLIED and job.applied_at is None:
-        job.applied_at = today
+    job.applied_at = applied_at_for(job.status, job.applied_at, today=today)
 
     await _write_checking_url(db, job, lambda: db.add(job))
     await record_status(db, job)

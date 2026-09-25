@@ -51,11 +51,14 @@ class IsolationCase:
     path: str  # the route template, e.g. "/api/jobs/{job_id}"
     arrange: Arrange
     expect: Literal["not_found", "empty", "custom"]
-    body: dict[str, Any] | None = None
+    # A dict, or a function of the params (A's from `arrange`, B's from `arrange_bob`).
+    body: dict[str, Any] | Callable[[dict[str, Any]], dict[str, Any]] | None = None
     query: dict[str, str] | None = None
     # For EMPTY: how to tell a response holds none of A's data.
     is_empty: Callable[[Any], bool] = lambda payload: payload in ([], {}, None)
     check: Check | None = None
+    # Creates B's own data (row-level security scoped to B), e.g. to mix B's IDs in.
+    arrange_bob: Arrange | None = None
 
     @property
     def key(self) -> tuple[str, str]:
@@ -141,14 +144,19 @@ async def run_case(client: TestClient, engine: AsyncEngine, case: IsolationCase)
     before = await _snapshot(engine, alice)
     # B must be a genuinely signed-in, allowed user: otherwise the allow-list check turns
     # every request into a 401, and cases would "pass" without testing isolation at all.
-    _, bob_token = await new_user(engine, with_session=True, email=ALLOWED_EMAIL)
+    bob, bob_token = await new_user(engine, with_session=True, email=ALLOWED_EMAIL)
+    if case.arrange_bob is not None:
+        async with engine.begin() as conn:
+            await conn.execute(text("SELECT set_config('app.user_id', :u, true)"), {"u": str(bob)})
+            params |= await case.arrange_bob(conn, bob)
 
+    body = case.body(params) if callable(case.body) else case.body
     resp = client.request(
         case.method,
         case.path.format(**params),
         headers={"cookie": f"{COOKIE_NAME}={bob_token}"},
         params=case.query,
-        json=case.body if case.method in {"POST", "PUT", "PATCH"} else None,
+        json=body if case.method in {"POST", "PUT", "PATCH"} else None,
     )
     where = f"{case.method} {case.path}"
     assert resp.status_code != 401, f"{where}: B's session was rejected; isolation untested"
@@ -258,6 +266,51 @@ for _case in (
         CUSTOM,
         body={"timezone": "America/New_York"},
         check=_bobs_own_timezone,
+    ),
+):
+    register(_case)
+
+
+# --- Cases: status changes and history (JT-26) --------------------------------------------
+
+
+async def _bobs_own_job(conn: AsyncConnection, bob: uuid.UUID) -> dict[str, Any]:
+    job_id = (
+        await conn.execute(
+            text(
+                "INSERT INTO jobs (user_id, company, role, status) "
+                "VALUES (:u, 'Globex', 'Engineer', 'applied') RETURNING id"
+            ),
+            {"u": bob},
+        )
+    ).scalar_one()
+    return {"bobs_job_id": job_id}
+
+
+def _only_bobs_job_changed(resp: Any, params: dict[str, Any]) -> None:
+    # A's job is "not found" to B; B's own job is updated. The snapshot proves none of
+    # A's jobs or history rows changed.
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {
+        "updated": [str(params["bobs_job_id"])],
+        "unchanged": [],
+        "not_found": [str(params["job_id"])],
+    }
+
+
+for _case in (
+    IsolationCase("GET", "/api/jobs/{job_id}/history", _alices_job, NOT_FOUND),
+    IsolationCase(
+        "POST", "/api/jobs/{job_id}/status", _alices_job, NOT_FOUND, body={"status": "rejected"}
+    ),
+    IsolationCase(
+        "POST",
+        "/api/jobs/bulk-status",
+        _alices_job,
+        CUSTOM,
+        arrange_bob=_bobs_own_job,
+        body=lambda p: {"ids": [str(p["job_id"]), str(p["bobs_job_id"])], "status": "no_response"},
+        check=_only_bobs_job_changed,
     ),
 ):
     register(_case)

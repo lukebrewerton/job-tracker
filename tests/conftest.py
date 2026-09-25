@@ -26,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 
 from app.config import Settings
 from app.main import create_app
-from app.sessions import CurrentUser, page_user
+from app.sessions import COOKIE_NAME, CurrentUser, page_user
 
 PUBLIC_BASE_URL = "https://job-tracker.example.test"
 # Port 1 on loopback: nothing listens, so connecting fails fast.
@@ -147,3 +147,23 @@ async def db_session(db_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
         finally:
             await session.close()
             await outer.rollback()
+
+
+# --- A signed-in user against the test database (API tests) ------------------------------
+
+
+@pytest.fixture
+async def user(db_engine: AsyncEngine) -> tuple[uuid.UUID, str]:
+    """A fresh signed-in, allowed user: (id, session token). Every test starts empty."""
+    from .isolation import new_user  # imports this module, so not at the top
+
+    return await new_user(db_engine, with_session=True, email=ALLOWED_EMAIL)
+
+
+@pytest.fixture
+def api(static_dir: Path, test_db_url: str, user: tuple[uuid.UUID, str]) -> Iterator[TestClient]:
+    """A client signed in as `user`."""
+    app = create_app(make_settings(static_dir, test_db_url))
+    headers = {"cookie": f"{COOKIE_NAME}={user[1]}"}
+    with TestClient(app, base_url=PUBLIC_BASE_URL, headers=headers) as c:
+        yield c
