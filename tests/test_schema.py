@@ -249,6 +249,7 @@ async def test_canonical_url_unique_per_user_only(db_session: AsyncSession) -> N
         ({"role": ""}, "ck_jobs_role_not_blank"),
         ({"company": "x" * 201}, "ck_jobs_company_max_len"),
         ({"notes": "x" * 10_001}, "ck_jobs_notes_max_len"),
+        ({"status": "saved", "applied_at": "2026-09-01"}, "ck_jobs_saved_has_no_applied_at"),
     ],
 )
 async def test_job_check_constraints(

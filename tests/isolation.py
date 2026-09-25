@@ -4,8 +4,9 @@
 
 Every /api route must have an `IsolationCase` registered in `CASES`: how to create user
 A's data, and what user B must get back when they aim the route at it (404 for a single
-item — never 403, which would confirm it exists — or an empty result for lists and
-aggregates). `test_isolation.py` fails the build if any /api route has no case.
+item — never 403, which would confirm it exists — an empty result for lists and
+aggregates, or a custom check). Whatever B gets, A's rows must be unchanged afterwards.
+`test_isolation.py` fails the build if any /api route has no case.
 
 Adding an API route? Register its case here in the same PR:
 
@@ -30,12 +31,18 @@ from .conftest import ALLOWED_EMAIL
 
 NOT_FOUND: Literal["not_found"] = "not_found"
 EMPTY: Literal["empty"] = "empty"
+CUSTOM: Literal["custom"] = "custom"
+
+# User A's data, read as A, to prove B's request changed none of it.
+_OWNED_TABLES = ("jobs", "status_history", "interviews")
 
 # Framework-provided documentation routes (development only), not data routes.
 DOC_PATHS = frozenset({"/api/openapi.json", "/api/docs", "/api/docs/oauth2-redirect"})
 
 # Creates user A's data, with row-level security scoped to A; returns path params.
 Arrange = Callable[[AsyncConnection, uuid.UUID], Awaitable[dict[str, Any]]]
+# For CUSTOM: asserts on B's response, given the path params arrange returned.
+Check = Callable[[Any, dict[str, Any]], None]
 
 
 @dataclass(frozen=True)
@@ -43,10 +50,12 @@ class IsolationCase:
     method: str
     path: str  # the route template, e.g. "/api/jobs/{job_id}"
     arrange: Arrange
-    expect: Literal["not_found", "empty"]
+    expect: Literal["not_found", "empty", "custom"]
     body: dict[str, Any] | None = None
+    query: dict[str, str] | None = None
     # For EMPTY: how to tell a response holds none of A's data.
     is_empty: Callable[[Any], bool] = lambda payload: payload in ([], {}, None)
+    check: Check | None = None
 
     @property
     def key(self) -> tuple[str, str]:
@@ -103,12 +112,27 @@ async def new_user(
     return user_id, token
 
 
+async def _snapshot(engine: AsyncEngine, user_id: uuid.UUID) -> dict[str, list[Any]]:
+    """Every row the user owns, read as that user."""
+    async with engine.begin() as conn:
+        await conn.execute(text("SELECT set_config('app.user_id', :u, true)"), {"u": str(user_id)})
+        return {
+            table: list(
+                (await conn.execute(text(f"SELECT to_jsonb(t) FROM {table} t ORDER BY id")))
+                .scalars()
+                .all()
+            )
+            for table in _OWNED_TABLES
+        }
+
+
 async def run_case(client: TestClient, engine: AsyncEngine, case: IsolationCase) -> None:
-    """Create A's data, then aim the route at it as B, and check B learns nothing."""
+    """Create A's data, then aim the route at it as B: B learns nothing, A's data is intact."""
     alice, _ = await new_user(engine)
     async with engine.begin() as conn:
         await conn.execute(text("SELECT set_config('app.user_id', :u, true)"), {"u": str(alice)})
         params = await case.arrange(conn, alice)
+    before = await _snapshot(engine, alice)
     # B must be a genuinely signed-in, allowed user: otherwise the allow-list check turns
     # every request into a 401, and cases would "pass" without testing isolation at all.
     _, bob_token = await new_user(engine, with_session=True, email=ALLOWED_EMAIL)
@@ -117,12 +141,80 @@ async def run_case(client: TestClient, engine: AsyncEngine, case: IsolationCase)
         case.method,
         case.path.format(**params),
         headers={"cookie": f"{COOKIE_NAME}={bob_token}"},
+        params=case.query,
         json=case.body if case.method in {"POST", "PUT", "PATCH"} else None,
     )
     where = f"{case.method} {case.path}"
     assert resp.status_code != 401, f"{where}: B's session was rejected; isolation untested"
     if case.expect == NOT_FOUND:
         assert resp.status_code == 404, f"{where}: expected 404, got {resp.status_code}"
-    else:
+    elif case.expect == EMPTY:
         assert resp.status_code == 200, f"{where}: expected 200, got {resp.status_code}"
         assert case.is_empty(resp.json()), f"{where}: leaked {resp.json()!r}"
+    else:
+        assert case.check is not None, f"{where}: a CUSTOM case needs a check"
+        case.check(resp, params)
+    assert await _snapshot(engine, alice) == before, f"{where}: changed A's data"
+
+
+# --- Cases: /api/jobs (JT-25) -------------------------------------------------------------
+
+ALICES_URL = "https://careers.acme.test/jobs/42?utm_source=linkedin"
+
+
+async def _alices_job(conn: AsyncConnection, alice: uuid.UUID) -> dict[str, Any]:
+    """One job of A's at Acme, with its initial history row."""
+    job_id = (
+        await conn.execute(
+            text(
+                "INSERT INTO jobs (user_id, company, role, url, url_canonical, status) "
+                "VALUES (:u, 'Acme Ltd', 'Platform Engineer', :url, :canonical, 'applied') "
+                "RETURNING id"
+            ),
+            {"u": alice, "url": ALICES_URL, "canonical": "https://careers.acme.test/jobs/42"},
+        )
+    ).scalar_one()
+    await conn.execute(
+        text("INSERT INTO status_history (job_id, user_id, status) VALUES (:j, :u, 'applied')"),
+        {"j": job_id, "u": alice},
+    )
+    return {"job_id": job_id}
+
+
+def _no_jobs_listed(page: Any) -> bool:
+    return page["items"] == [] and page["total"] == 0 and not any(page["counts"].values())
+
+
+def _created_as_bobs_own(resp: Any, params: dict[str, Any]) -> None:
+    # A's URL is not a duplicate for B: B's job is created, and it is a new job.
+    assert resp.status_code == 201, f"expected 201, got {resp.status_code}: {resp.text}"
+    assert resp.json()["id"] != str(params["job_id"])
+
+
+for _case in (
+    IsolationCase(
+        "GET", "/api/jobs", _alices_job, EMPTY, query={"status": "all"}, is_empty=_no_jobs_listed
+    ),
+    IsolationCase(
+        "GET",
+        "/api/jobs/company-matches",
+        _alices_job,
+        EMPTY,
+        query={"company": "Acme"},
+        is_empty=lambda payload: payload == {"companies": []},
+    ),
+    IsolationCase("GET", "/api/jobs/{job_id}", _alices_job, NOT_FOUND),
+    IsolationCase(
+        "PATCH", "/api/jobs/{job_id}", _alices_job, NOT_FOUND, body={"notes": "B was here"}
+    ),
+    IsolationCase("DELETE", "/api/jobs/{job_id}", _alices_job, NOT_FOUND),
+    IsolationCase(
+        "POST",
+        "/api/jobs",
+        _alices_job,
+        CUSTOM,
+        body={"company": "Acme Ltd", "role": "Platform Engineer", "url": ALICES_URL},
+        check=_created_as_bobs_own,
+    ),
+):
+    register(_case)

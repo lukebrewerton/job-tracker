@@ -167,7 +167,8 @@ def test_harness_flags_a_route_without_a_case(static_dir: Path, test_db_url: str
     app = _app_with(static_dir, test_db_url, _probe_router())
     cases = _probe_cases()
     del cases[("GET", "/api/_probe/jobs")]
-    assert api_routes(app) - cases.keys() == {("GET", "/api/_probe/jobs")}
+    probe_routes = {r for r in api_routes(app) if r[1].startswith("/api/_probe/")}
+    assert probe_routes - cases.keys() == {("GET", "/api/_probe/jobs")}
 
 
 def test_routes_on_the_api_router_require_a_session(probe_client: TestClient) -> None:
