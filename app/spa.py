@@ -9,10 +9,12 @@
 `/api/*` and `/auth/*` are never answered with the SPA: an unknown API path must be a
 JSON 404, not an HTML page.
 
-The app shell (`index.html`) is only served to a signed-in user. Otherwise the browser is
-sent to sign in, and brought back to the exact URL afterwards — which is what makes the
-extension's `/jobs/new?url=…` link work on a cold start. Built files stay public: they
-contain no data.
+The app shell (`index.html`) is only served to a signed-in user, except on the public
+front page (`/`), which shows a sign-in button when you're signed out (and is where
+logout lands, so Google can't silently sign you straight back in). Anywhere else, the
+browser is sent to sign in and brought back to the exact URL afterwards — which is what
+makes the extension's `/jobs/new?url=…` link work on a cold start. Built files stay
+public: they contain no data, and the shell fetches all data from the gated API.
 """
 
 from pathlib import Path
@@ -26,6 +28,8 @@ from fastapi.staticfiles import StaticFiles
 from app.sessions import CurrentUser, page_user
 
 RESERVED_PREFIXES = ("api", "auth")
+# Client-side routes served without a session. Only the front page: it holds no data.
+PUBLIC_PAGES = frozenset({""})
 
 
 def mount_spa(app: FastAPI, static_dir: Path) -> None:
@@ -51,7 +55,7 @@ def mount_spa(app: FastAPI, static_dir: Path) -> None:
             if candidate.is_relative_to(root) and candidate.is_file():
                 return FileResponse(candidate)
 
-        if user is None:
+        if user is None and path not in PUBLIC_PAGES:
             target = request.url.path + (f"?{request.url.query}" if request.url.query else "")
             return RedirectResponse(f"/auth/login?next={quote(target, safe='')}", status_code=302)
 

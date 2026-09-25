@@ -12,12 +12,17 @@
   "rules": {
     "react/rules-of-hooks": "error",
     "react/exhaustive-deps": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }],
+    "react/only-export-components": [
+      "warn",
+      {
+        "allowConstantExport": true
+      }
+    ],
     "react/react-in-jsx-scope": "off",
     "typescript/no-floating-promises": "error",
     "typescript/no-misused-promises": "error",
     "typescript/no-unsafe-assignment": "error",
     "typescript/await-thenable": "error"
   },
-  "ignorePatterns": ["dist"]
+  "ignorePatterns": ["dist", "codegen", "src/api/schema.ts"]
 }

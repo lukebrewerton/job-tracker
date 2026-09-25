@@ -13,6 +13,8 @@
 !.nvmrc
 
 frontend/node_modules
+# The type generator (make types) isn't part of the build.
+frontend/codegen
 frontend/dist
 **/__pycache__
 **/.DS_Store
