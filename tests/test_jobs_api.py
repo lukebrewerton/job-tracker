@@ -4,9 +4,7 @@
 duplicates, and company matching. Cross-user isolation is in test_isolation.py."""
 
 import uuid
-from collections.abc import Iterator
 from datetime import UTC, date, datetime
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -16,28 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app import jobs, timezones
 from app.db import set_session_user
-from app.main import create_app
+from app.models import JobStatus
 from app.schemas import SAVED_WITH_APPLIED_AT
-from app.sessions import COOKIE_NAME
 
-from .conftest import PUBLIC_BASE_URL, make_settings
 from .isolation import new_user
 
 JOB = {"company": "Acme Ltd", "role": "Platform Engineer"}
-
-
-@pytest.fixture
-async def user(db_engine: AsyncEngine) -> tuple[uuid.UUID, str]:
-    """A fresh signed-in user per test: every test starts with no jobs."""
-    return await new_user(db_engine, with_session=True, email="allowed@example.test")
-
-
-@pytest.fixture
-def api(static_dir: Path, test_db_url: str, user: tuple[uuid.UUID, str]) -> Iterator[TestClient]:
-    app = create_app(make_settings(static_dir, test_db_url))
-    headers = {"cookie": f"{COOKIE_NAME}={user[1]}"}
-    with TestClient(app, base_url=PUBLIC_BASE_URL, headers=headers) as c:
-        yield c
 
 
 async def _sql(engine: AsyncEngine, user_id: uuid.UUID, sql: str, **params: Any) -> None:
@@ -524,12 +506,20 @@ async def test_data_layer_filters_by_user_even_where_rls_would_allow(
             rows, total, counts = await jobs.list_jobs(db, bob, status="all")
             assert (rows, total, sum(counts.values())) == ([], 0, 0)
             assert await jobs.company_matches(db, bob, "acme") == []
+            assert await jobs.status_history(db, bob, job_id) is None
+            closed = JobStatus.REJECTED
+            assert await jobs.change_status(db, bob, job_id, closed, today=date.today()) is None
+            bulk = await jobs.bulk_change_status(db, bob, [job_id], closed, today=date.today())
+            assert (bulk.updated, bulk.not_found) == ([], [job_id])
             # A's URL is not a duplicate for B.
             url = "https://acme.test/jobs/1"
             assert await jobs._existing_with_url(db, bob, url, excluding=None) is None
 
             still = await jobs.get_job(db, alice, job_id)
             assert still is not None and still.job.notes is None
+            assert still.job.status == JobStatus.SAVED
+            history = await jobs.status_history(db, alice, job_id)
+            assert history is not None and len(history) == 1
         finally:
             await db.close()
             await outer.rollback()

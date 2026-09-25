@@ -7,34 +7,17 @@ Cross-user isolation is in test_isolation.py.
 
 import uuid
 import zoneinfo
-from collections.abc import Iterator
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app import timezones
-from app.main import create_app
-from app.sessions import COOKIE_NAME, CurrentUser
+from app.sessions import CurrentUser
 
-from .conftest import ALLOWED_EMAIL, PUBLIC_BASE_URL, make_settings
-from .isolation import new_user
-
-
-@pytest.fixture
-async def user(db_engine: AsyncEngine) -> tuple[uuid.UUID, str]:
-    return await new_user(db_engine, with_session=True, email=ALLOWED_EMAIL)
-
-
-@pytest.fixture
-def api(static_dir: Path, test_db_url: str, user: tuple[uuid.UUID, str]) -> Iterator[TestClient]:
-    app = create_app(make_settings(static_dir, test_db_url))
-    headers = {"cookie": f"{COOKIE_NAME}={user[1]}"}
-    with TestClient(app, base_url=PUBLIC_BASE_URL, headers=headers) as c:
-        yield c
+from .conftest import ALLOWED_EMAIL
 
 
 def _at(monkeypatch: pytest.MonkeyPatch, moment: str) -> None:

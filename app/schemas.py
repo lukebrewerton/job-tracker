@@ -16,6 +16,7 @@ from pydantic import (
     BaseModel,
     BeforeValidator,
     ConfigDict,
+    Field,
     StringConstraints,
     model_validator,
 )
@@ -135,6 +136,31 @@ class JobPage(BaseModel):
     page_size: int
     # Every status's count across all of the user's jobs, ignoring the filter and search.
     counts: dict[JobStatus, int]
+
+
+class StatusChange(_Input):
+    status: JobStatus
+
+
+BULK_STATUS_MAX = 500
+
+
+class BulkStatusChange(_Input):
+    ids: Annotated[list[uuid.UUID], Field(min_length=1, max_length=BULK_STATUS_MAX)]
+    status: JobStatus
+
+
+class BulkStatusResult(BaseModel):
+    updated: list[uuid.UUID]
+    # Already had the status: nothing written.
+    unchanged: list[uuid.UUID]
+    # Not your job, or doesn't exist: never touched, and indistinguishable.
+    not_found: list[uuid.UUID]
+
+
+class HistoryEntry(BaseModel):
+    status: JobStatus
+    changed_at: datetime
 
 
 class DuplicateJob(BaseModel):
