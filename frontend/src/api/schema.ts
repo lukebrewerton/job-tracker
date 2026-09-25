@@ -501,6 +501,8 @@ export interface components {
         JobOut: {
             /** Applied At */
             applied_at: string | null;
+            /** Attention */
+            attention: ("needs_follow_up" | "still_to_apply" | "no_response") | null;
             /** Company */
             company: string;
             /** Contact Email */
@@ -512,6 +514,8 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Days Since Last Change */
+            days_since_last_change: number;
             /**
              * Id
              * Format: uuid

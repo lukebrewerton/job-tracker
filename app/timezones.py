@@ -45,3 +45,8 @@ def today_in(timezone: str) -> date:
 def date_in(moment: datetime, timezone: str) -> date:
     """The calendar date of an instant, in the zone."""
     return moment.astimezone(ZoneInfo(timezone)).date()
+
+
+def days_since(moment: datetime, timezone: str) -> int:
+    """Whole calendar days from the instant's date to today, both in the zone."""
+    return (today_in(timezone) - date_in(moment, timezone)).days

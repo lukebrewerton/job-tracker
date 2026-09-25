@@ -20,6 +20,7 @@ always gets back to you.
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,6 +30,24 @@ from app.jobs import ACTIVE_STATUSES, last_change
 from app.models import Interview, Job, JobStatus, StatusHistory
 
 UPCOMING_INTERVIEWS_SHOWN = 5
+
+Attention = Literal["needs_follow_up", "still_to_apply", "no_response"]
+
+
+def attention_for(
+    status: JobStatus, days: int, *, stale_after_days: int, no_response_after_days: int
+) -> Attention | None:
+    """Which dashboard list a job belongs in, if any: the one rule, shared by the
+    dashboard and the jobs list (which highlights the same jobs)."""
+    if days < stale_after_days:
+        return None
+    if status == JobStatus.SAVED:
+        return "still_to_apply"
+    if status == JobStatus.OFFER:
+        return "needs_follow_up"
+    if status == JobStatus.APPLIED:
+        return "needs_follow_up" if days < no_response_after_days else "no_response"
+    return None  # interviewing, and closed jobs, need no chasing
 
 
 @dataclass(frozen=True)
@@ -132,17 +151,21 @@ async def build(
     needs_follow_up: list[StaleJob] = []
     still_to_apply: list[StaleJob] = []
     no_response: list[StaleJob] = []
+    lists: dict[Attention, list[StaleJob]] = {
+        "needs_follow_up": needs_follow_up,
+        "still_to_apply": still_to_apply,
+        "no_response": no_response,
+    }
     for job, changed_at in candidates.tuples():
         days = (today - timezones.date_in(changed_at, timezone)).days
-        if days < stale_after_days:
-            continue
-        stale = StaleJob(job, changed_at, days)
-        if job.status == JobStatus.SAVED:
-            still_to_apply.append(stale)
-        elif job.status == JobStatus.OFFER or days < no_response_after_days:
-            needs_follow_up.append(stale)
-        else:
-            no_response.append(stale)
+        attention = attention_for(
+            job.status,
+            days,
+            stale_after_days=stale_after_days,
+            no_response_after_days=no_response_after_days,
+        )
+        if attention is not None:
+            lists[attention].append(StaleJob(job, changed_at, days))
 
     upcoming = (
         sa.select(Interview, Job)

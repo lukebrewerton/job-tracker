@@ -9,13 +9,14 @@ like a missing one, is a 404: never a 403, which would confirm it exists.
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import AfterValidator
 from pydantic_core import PydanticCustomError
 
-from app import jobs
+from app import dashboard, jobs, timezones
+from app.config import Settings
 from app.schemas import (
     SAVED_WITH_APPLIED_AT,
     BulkStatusChange,
@@ -30,7 +31,7 @@ from app.schemas import (
     JobUpdate,
     StatusChange,
 )
-from app.sessions import CurrentUserDep, UserDbSession
+from app.sessions import CurrentUser, CurrentUserDep, UserDbSession
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -64,8 +65,17 @@ def _company_query(value: str) -> str:
     return value
 
 
-def _out(row: jobs.JobRow) -> JobOut:
+def _settings(request: Request) -> Settings:
+    settings: Settings = request.app.state.settings
+    return settings
+
+
+SettingsDep = Annotated[Settings, Depends(_settings)]
+
+
+def _out(row: jobs.JobRow, user: CurrentUser, settings: Settings) -> JobOut:
     job = row.job
+    days = timezones.days_since(row.last_status_change_at, user.timezone)
     return JobOut(
         id=job.id,
         company=job.company,
@@ -82,6 +92,13 @@ def _out(row: jobs.JobRow) -> JobOut:
         created_at=job.created_at,
         updated_at=job.updated_at,
         last_status_change_at=row.last_status_change_at,
+        days_since_last_change=days,
+        attention=dashboard.attention_for(
+            job.status,
+            days,
+            stale_after_days=settings.stale_after_days,
+            no_response_after_days=settings.no_response_after_days,
+        ),
     )
 
 
@@ -94,6 +111,7 @@ def _duplicate(exc: jobs.DuplicateJobError) -> JSONResponse:
 async def list_jobs(
     user: CurrentUserDep,
     db: UserDbSession,
+    settings: SettingsDep,
     status: jobs.StatusFilter = "active",
     q: Annotated[str | None, AfterValidator(_search_text), Query()] = None,
     sort: jobs.SortField = "created_at",
@@ -117,20 +135,24 @@ async def list_jobs(
         page_size=page_size,
     )
     return JobPage(
-        items=[_out(r) for r in rows], total=total, page=page, page_size=page_size, counts=counts
+        items=[_out(r, user, settings) for r in rows],
+        total=total,
+        page=page,
+        page_size=page_size,
+        counts=counts,
     )
 
 
 @router.post("", status_code=201, response_model=JobOut, responses=_DUPLICATE)
 async def create_job(
-    user: CurrentUserDep, db: UserDbSession, body: JobCreate
+    user: CurrentUserDep, db: UserDbSession, settings: SettingsDep, body: JobCreate
 ) -> JobOut | JSONResponse:
     """Create a job. 409 with the existing job's id if you already track this URL."""
     try:
         row = await jobs.create_job(db, user.id, body.model_dump(), today=user.today())
     except jobs.DuplicateJobError as exc:
         return _duplicate(exc)
-    return _out(row)
+    return _out(row, user, settings)
 
 
 # Declared before /{job_id}, so "company-matches" is never parsed as a job id.
@@ -172,16 +194,22 @@ async def bulk_change_status(
 
 
 @router.get("/{job_id}")
-async def get_job(user: CurrentUserDep, db: UserDbSession, job_id: uuid.UUID) -> JobOut:
+async def get_job(
+    user: CurrentUserDep, db: UserDbSession, settings: SettingsDep, job_id: uuid.UUID
+) -> JobOut:
     row = await jobs.get_job(db, user.id, job_id)
     if row is None:
         raise _NOT_FOUND
-    return _out(row)
+    return _out(row, user, settings)
 
 
 @router.patch("/{job_id}", response_model=JobOut, responses=_DUPLICATE)
 async def update_job(
-    user: CurrentUserDep, db: UserDbSession, job_id: uuid.UUID, body: JobUpdate
+    user: CurrentUserDep,
+    db: UserDbSession,
+    settings: SettingsDep,
+    job_id: uuid.UUID,
+    body: JobUpdate,
 ) -> JobOut | JSONResponse:
     """Change only the fields sent; null clears an optional field. Not the status (JT-26)."""
     try:
@@ -201,7 +229,7 @@ async def update_job(
         ) from None
     if row is None:
         raise _NOT_FOUND
-    return _out(row)
+    return _out(row, user, settings)
 
 
 @router.delete("/{job_id}", status_code=204)
@@ -214,7 +242,11 @@ async def delete_job(user: CurrentUserDep, db: UserDbSession, job_id: uuid.UUID)
 
 @router.post("/{job_id}/status")
 async def change_status(
-    user: CurrentUserDep, db: UserDbSession, job_id: uuid.UUID, body: StatusChange
+    user: CurrentUserDep,
+    db: UserDbSession,
+    settings: SettingsDep,
+    job_id: uuid.UUID,
+    body: StatusChange,
 ) -> JobOut:
     """Change a job's status, recording it in the history.
 
@@ -225,7 +257,7 @@ async def change_status(
     row = await jobs.change_status(db, user.id, job_id, body.status, today=user.today())
     if row is None:
         raise _NOT_FOUND
-    return _out(row)
+    return _out(row, user, settings)
 
 
 @router.get("/{job_id}/history")

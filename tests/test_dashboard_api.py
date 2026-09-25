@@ -294,3 +294,42 @@ async def test_the_isolation_data_fills_every_part_of_its_owners_dashboard(
     assert board["upcoming_interviews"]
     counts = board["counts"]
     assert counts["rejected_after_interview"] and counts["saved"] and counts["offer"]
+
+
+# --- The jobs list highlights exactly the dashboard's jobs ------------------------------------
+
+
+async def test_jobs_list_attention_matches_the_dashboard(api: TestClient, jobs: Jobs) -> None:
+    """Each job's `attention` names the dashboard list it's in (or None): one rule, two uses."""
+    for status, days in (
+        ("applied", 6),
+        ("applied", 7),
+        ("applied", 13),
+        ("applied", 14),
+        ("offer", 400),
+        ("saved", 7),
+        ("interviewing", 100),
+        ("rejected", 100),
+    ):
+        await jobs.add(status, days_ago=days, company=f"{status}-{days}")
+
+    board = _dashboard(api)
+    in_list = {j["id"]: name for name in LISTS for j in board[name]}
+    listed = api.get("/api/jobs", params={"status": "all", "page_size": 100}).json()["items"]
+    # The dashboard's list names, as `attention` values (one list is named differently).
+    as_attention: dict[str | None, str | None] = {
+        None: None,
+        "needs_follow_up": "needs_follow_up",
+        "still_to_apply": "still_to_apply",
+        "no_response_candidates": "no_response",
+    }
+
+    assert len(listed) == 8
+    for job in listed:
+        assert job["attention"] == as_attention[in_list.get(job["id"])], job["company"]
+
+
+async def test_jobs_carry_their_days_since_last_change(api: TestClient, jobs: Jobs) -> None:
+    job = await jobs.add("applied", days_ago=9)
+    fetched = api.get(f"/api/jobs/{job['id']}").json()
+    assert (fetched["days_since_last_change"], fetched["attention"]) == (9, "needs_follow_up")
