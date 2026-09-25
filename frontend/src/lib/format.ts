@@ -19,7 +19,16 @@ export const STATUS_LABELS: Record<JobStatus, string> = {
 };
 
 /** In lifecycle order, as the API sorts them. */
-export const STATUSES = Object.keys(STATUS_LABELS) as JobStatus[];
+export const STATUSES: readonly JobStatus[] = [
+  "saved",
+  "applied",
+  "interviewing",
+  "offer",
+  "accepted",
+  "rejected",
+  "withdrawn",
+  "no_response",
+];
 
 export const ACTIVE_STATUSES: readonly JobStatus[] = [
   "saved",
