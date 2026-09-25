@@ -12,7 +12,7 @@ import uuid
 from collections import defaultdict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 from typing import Any, Literal
 
 import sqlalchemy as sa
@@ -48,10 +48,6 @@ class AppliedAtOnSavedJobError(Exception):
 class JobRow:
     job: Job
     last_status_change_at: datetime
-
-
-def utc_today() -> date:
-    return datetime.now(UTC).date()
 
 
 def _last_change(user_id: uuid.UUID) -> sa.Subquery:

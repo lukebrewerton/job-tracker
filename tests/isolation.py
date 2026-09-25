@@ -113,10 +113,10 @@ async def new_user(
 
 
 async def _snapshot(engine: AsyncEngine, user_id: uuid.UUID) -> dict[str, list[Any]]:
-    """Every row the user owns, read as that user."""
+    """The user's own `users` row, and every row they own, read as that user."""
     async with engine.begin() as conn:
         await conn.execute(text("SELECT set_config('app.user_id', :u, true)"), {"u": str(user_id)})
-        return {
+        snapshot = {
             table: list(
                 (await conn.execute(text(f"SELECT to_jsonb(t) FROM {table} t ORDER BY id")))
                 .scalars()
@@ -124,6 +124,12 @@ async def _snapshot(engine: AsyncEngine, user_id: uuid.UUID) -> dict[str, list[A
             )
             for table in _OWNED_TABLES
         }
+        # Not under row-level security, so selected by id.
+        user_row = await conn.execute(
+            text("SELECT to_jsonb(u) FROM users u WHERE id = :u"), {"u": user_id}
+        )
+        snapshot["users"] = list(user_row.scalars().all())
+        return snapshot
 
 
 async def run_case(client: TestClient, engine: AsyncEngine, case: IsolationCase) -> None:
@@ -215,6 +221,43 @@ for _case in (
         CUSTOM,
         body={"company": "Acme Ltd", "role": "Platform Engineer", "url": ALICES_URL},
         check=_created_as_bobs_own,
+    ),
+):
+    register(_case)
+
+
+# --- Cases: /api/me (JT-48) ---------------------------------------------------------------
+
+ALICES_TIMEZONE = "Asia/Tokyo"
+
+
+async def _alice_in_tokyo(conn: AsyncConnection, alice: uuid.UUID) -> dict[str, Any]:
+    await conn.execute(
+        text("UPDATE users SET timezone = :tz WHERE id = :u"), {"tz": ALICES_TIMEZONE, "u": alice}
+    )
+    return {}
+
+
+def _bobs_own_profile(resp: Any, params: dict[str, Any]) -> None:
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {"email": ALLOWED_EMAIL, "timezone": "UTC"}
+
+
+def _bobs_own_timezone(resp: Any, params: dict[str, Any]) -> None:
+    # B's own zone is set; the snapshot proves A's row is untouched.
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {"timezone": "America/New_York"}
+
+
+for _case in (
+    IsolationCase("GET", "/api/me", _alice_in_tokyo, CUSTOM, check=_bobs_own_profile),
+    IsolationCase(
+        "PUT",
+        "/api/me/timezone",
+        _alice_in_tokyo,
+        CUSTOM,
+        body={"timezone": "America/New_York"},
+        check=_bobs_own_timezone,
     ),
 ):
     register(_case)

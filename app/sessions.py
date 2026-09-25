@@ -21,7 +21,7 @@ import hashlib
 import secrets
 import uuid
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, Response
@@ -30,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import Settings
 from app.db import DbSession, set_session_user
+from app.timezones import DEFAULT_TIMEZONE, today_in
 
 COOKIE_NAME = "__Host-jt_session"
 _LAST_SEEN_RESOLUTION = timedelta(hours=1)
@@ -39,6 +40,11 @@ _LAST_SEEN_RESOLUTION = timedelta(hours=1)
 class CurrentUser:
     id: uuid.UUID
     email: str
+    timezone: str = DEFAULT_TIMEZONE  # IANA name; see app/timezones.py
+
+    def today(self) -> date:
+        """Today's date where this user is."""
+        return today_in(self.timezone)
 
 
 def hash_token(token: str) -> str:
@@ -114,7 +120,7 @@ async def current_user(request: Request, db: DbSession) -> CurrentUser:
     row = (
         await db.execute(
             text(
-                "SELECT s.id AS session_id, s.user_id, u.email, "
+                "SELECT s.id AS session_id, s.user_id, u.email, u.timezone, "
                 "s.created_at <= now() - make_interval(days => :max_days) AS too_old, "
                 "s.last_seen_at <= now() - make_interval(days => :idle_days) AS idle, "
                 "s.last_seen_at <= now() - make_interval(secs => :resolution) AS stale_seen "
@@ -149,7 +155,7 @@ async def current_user(request: Request, db: DbSession) -> CurrentUser:
             text("UPDATE sessions SET last_seen_at = now() WHERE id = :id"),
             {"id": row.session_id},
         )
-    return CurrentUser(id=row.user_id, email=row.email)
+    return CurrentUser(id=row.user_id, email=row.email, timezone=row.timezone)
 
 
 CurrentUserDep = Annotated[CurrentUser, Depends(current_user)]
