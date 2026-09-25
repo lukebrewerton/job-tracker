@@ -41,7 +41,7 @@ def _out(interview: Interview) -> InterviewOut:
     )
 
 
-def _with_job(interview: Interview, job: Job) -> InterviewWithJob:
+def interview_with_job(interview: Interview, job: Job) -> InterviewWithJob:
     summary = JobSummary(id=job.id, company=job.company, role=job.role, status=job.status)
     return InterviewWithJob(**_out(interview).model_dump(), job=summary)
 
@@ -114,7 +114,7 @@ async def interview_groups(user: CurrentUserDep, db: UserDbSession) -> Interview
     """
     groups = await interviews.grouped(db, user.id, now=timezones.now())
     return InterviewGroups(
-        upcoming=[_with_job(i, j) for i, j in groups.upcoming],
-        not_yet_scheduled=[_with_job(i, j) for i, j in groups.not_yet_scheduled],
-        past=[_with_job(i, j) for i, j in groups.past],
+        upcoming=[interview_with_job(i, j) for i, j in groups.upcoming],
+        not_yet_scheduled=[interview_with_job(i, j) for i, j in groups.not_yet_scheduled],
+        past=[interview_with_job(i, j) for i, j in groups.past],
     )

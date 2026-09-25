@@ -50,7 +50,7 @@ class JobRow:
     last_status_change_at: datetime
 
 
-def _last_change(user_id: uuid.UUID) -> sa.Subquery:
+def last_change(user_id: uuid.UUID) -> sa.Subquery:
     """Each of the user's jobs with its latest status change."""
     return (
         sa.select(
@@ -64,7 +64,7 @@ def _last_change(user_id: uuid.UUID) -> sa.Subquery:
 
 
 def _select_rows(user_id: uuid.UUID) -> tuple[sa.Select[Any], sa.ColumnElement[datetime]]:
-    last = _last_change(user_id)
+    last = last_change(user_id)
     last_at = sa.func.coalesce(last.c.changed_at, Job.created_at)
     query = (
         sa.select(Job, last_at.label("last_status_change_at"))

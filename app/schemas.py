@@ -253,3 +253,45 @@ class InterviewGroups(BaseModel):
     upcoming: list[InterviewWithJob]  # soonest first
     not_yet_scheduled: list[InterviewWithJob]  # active jobs only, oldest first
     past: list[InterviewWithJob]  # most recent first
+
+
+# --- Dashboard --------------------------------------------------------------------------------
+
+
+class DashboardCounts(BaseModel):
+    active: int  # saved + applied + interviewing + offer
+    saved: int
+    applied_ever: int  # jobs with an applied date, whatever their status now
+    interviewing: int
+    offer: int
+    rejected_at_application: int
+    rejected_after_interview: int  # the job was `interviewing` at some point
+    no_response: int
+    withdrawn: int
+    accepted: int
+
+
+class StaleJobOut(BaseModel):
+    id: uuid.UUID
+    company: str
+    role: str
+    status: JobStatus
+    last_status_change_at: datetime
+    # Whole calendar days in the user's time zone.
+    days_since_last_change: int
+
+
+class DashboardThresholds(BaseModel):
+    stale_after_days: int
+    no_response_after_days: int
+
+
+class DashboardOut(BaseModel):
+    counts: DashboardCounts
+    # Each list is oldest first, and a job is in at most one of them.
+    needs_follow_up: list[StaleJobOut]
+    still_to_apply: list[StaleJobOut]
+    no_response_candidates: list[StaleJobOut]
+    upcoming_interviews: list[InterviewWithJob]  # the next few, soonest first
+    upcoming_interviews_total: int
+    thresholds: DashboardThresholds
