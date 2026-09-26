@@ -1,28 +1,39 @@
 // Copyright (C) 2026 Luke Brewerton
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// localStorage that never throws: private windows and blocked storage just behave
-// as if nothing was saved.
+// Web storage that never throws: private windows and blocked storage just behave
+// as if nothing was saved. localStorage by default; sessionStorage (this tab only)
+// where asked.
 
-export function readItem(key: string): string | null {
+type Scope = "local" | "session";
+
+function store(scope: Scope): Storage {
+  return scope === "session" ? window.sessionStorage : window.localStorage;
+}
+
+export function readItem(key: string, scope: Scope = "local"): string | null {
   try {
-    return window.localStorage.getItem(key);
+    return store(scope).getItem(key);
   } catch {
     return null;
   }
 }
 
-export function writeItem(key: string, value: string): void {
+export function writeItem(
+  key: string,
+  value: string,
+  scope: Scope = "local",
+): void {
   try {
-    window.localStorage.setItem(key, value);
+    store(scope).setItem(key, value);
   } catch {
     // Not available: the view just isn't remembered.
   }
 }
 
-export function removeItem(key: string): void {
+export function removeItem(key: string, scope: Scope = "local"): void {
   try {
-    window.localStorage.removeItem(key);
+    store(scope).removeItem(key);
   } catch {
     // Nothing to remove.
   }

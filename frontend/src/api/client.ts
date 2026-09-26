@@ -12,6 +12,8 @@ export const PUBLIC_PATHS: ReadonlySet<string> = new Set(["/"]);
 
 /** Full-page navigations, behind one object so tests can observe them. */
 export const navigation = {
+  /** Set once the page is on its way to sign in: nothing left here is worth reporting. */
+  leaving: false,
   assign(url: string): void {
     window.location.assign(url);
   },
@@ -30,6 +32,7 @@ const signInOn401: Middleware = {
       response.status === 401 &&
       !PUBLIC_PATHS.has(window.location.pathname)
     ) {
+      navigation.leaving = true;
       navigation.assign(loginUrl(window.location));
     }
     return response;

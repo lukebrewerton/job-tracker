@@ -11,6 +11,8 @@ call a library.
 
 import base64
 import hashlib
+import html
+import re
 import time
 import uuid
 from collections.abc import Iterator
@@ -366,3 +368,52 @@ def test_failed_page_offers_a_retry_and_reveals_nothing(client: TestClient) -> N
     assert resp.status_code == 400
     assert "Sign-in failed" in resp.text
     assert 'href="/auth/login"' in resp.text
+
+
+# --- Keeping the destination through a refused sign-in ------------------------------------
+
+EXTENSION_NEXT = "/jobs/new?url=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fview%2F42&title=SRE"
+
+
+def test_a_refused_sign_in_remembers_where_you_were_going(
+    client: TestClient, provider: FakeProvider
+) -> None:
+    provider.claims = {"sub": f"sub-{uuid.uuid4()}", "email": "stranger@example.test"}
+    query = _start_login(client, provider, next=EXTENSION_NEXT)
+
+    resp = _callback(client, query["state"])
+
+    assert resp.status_code == 303
+    location = urlsplit(resp.headers["location"])
+    assert location.path == "/auth/denied"
+    assert parse_qs(location.query) == {"next": [EXTENSION_NEXT]}
+
+
+def test_the_different_account_button_goes_back_to_where_you_were_going(
+    client: TestClient,
+) -> None:
+    resp = client.get("/auth/denied", params={"next": EXTENSION_NEXT})
+    href = html.unescape(re.search(r'href="([^"]+)"', resp.text).group(1))  # type: ignore[union-attr]
+    target = urlsplit(href)
+    assert target.path == "/auth/login"
+    assert parse_qs(target.query) == {"switch_account": ["true"], "next": [EXTENSION_NEXT]}
+
+
+def test_try_again_also_keeps_the_destination(client: TestClient) -> None:
+    resp = client.get("/auth/denied", params={"reason": "failed", "next": "/jobs?status=all"})
+    href = html.unescape(re.search(r'href="([^"]+)"', resp.text).group(1))  # type: ignore[union-attr]
+    assert parse_qs(urlsplit(href).query) == {"next": ["/jobs?status=all"]}
+
+
+@pytest.mark.parametrize(
+    "evil", ["https://evil.test/", "//evil.test", "/\\evil.test", "javascript:alert(1)"]
+)
+def test_the_denied_page_never_links_off_site(client: TestClient, evil: str) -> None:
+    resp = client.get("/auth/denied", params={"next": evil})
+    assert 'href="/auth/login?switch_account=true"' in resp.text
+    assert "evil" not in resp.text
+
+
+def test_the_denied_page_escapes_its_link(client: TestClient) -> None:
+    resp = client.get("/auth/denied", params={"next": '/jobs?q="><script>'})
+    assert "<script>" not in resp.text
