@@ -6,7 +6,8 @@ import { Layout } from "./components/Layout";
 import { Home } from "./pages/Home";
 import { NotFound } from "./pages/NotFound";
 import { JobsPage } from "./pages/jobs/JobsPage";
-import { Dashboard, Interviews, JobDetail, NewJob } from "./pages/Placeholder";
+import { NewJobPage } from "./pages/newjob/NewJobPage";
+import { Dashboard, Interviews, JobDetail } from "./pages/Placeholder";
 
 // Only "/" works signed out; the server sends every other page to sign in first
 // (app/spa.py), and the API client does the same on a 401.
@@ -17,7 +18,7 @@ export const routes: RouteObject[] = [
       { index: true, element: <Home /> },
       { path: "dashboard", element: <Dashboard /> },
       { path: "jobs", element: <JobsPage /> },
-      { path: "jobs/new", element: <NewJob /> },
+      { path: "jobs/new", element: <NewJobPage /> },
       { path: "jobs/:id", element: <JobDetail /> },
       { path: "interviews", element: <Interviews /> },
       { path: "*", element: <NotFound /> },

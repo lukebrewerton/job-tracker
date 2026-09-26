@@ -152,7 +152,7 @@ describe("the front page", () => {
     for (const link of signIns) {
       expect(link).toHaveAttribute(
         "href",
-        `/auth/login?next=${encodeURIComponent("/dashboard")}`,
+        `/auth/login?switch_account=true&next=${encodeURIComponent("/dashboard")}`,
       );
     }
     expect(

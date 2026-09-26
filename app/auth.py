@@ -17,6 +17,7 @@ import logging
 import uuid
 from enum import StrEnum
 from typing import Any
+from urllib.parse import urlencode
 
 import httpx2
 from authlib.integrations.starlette_client import OAuth
@@ -122,7 +123,7 @@ async def callback(request: Request, session: DbSession) -> RedirectResponse:
         # Cancelled consent, state mismatch/missing cookie, bad or tampered token, provider
         # unreachable... The reason is for the logs, not the page.
         logger.warning("sign-in failed during token exchange/validation", exc_info=True)
-        return _denied(request, DeniedReason.FAILED)
+        return _denied(DeniedReason.FAILED, next_path)
     finally:
         request.session.clear()
 
@@ -130,12 +131,12 @@ async def callback(request: Request, session: DbSession) -> RedirectResponse:
     userinfo = token.get("userinfo")
     if not userinfo or not userinfo.get("sub"):
         logger.warning("sign-in failed: no validated ID token in the token response")
-        return _denied(request, DeniedReason.FAILED)
+        return _denied(DeniedReason.FAILED, next_path)
 
     email = str(userinfo.get("email") or "").strip().lower()
     if userinfo.get("email_verified") is not True or email not in _settings(request).allowed_emails:
         logger.info("sign-in refused", extra={"reason": "email not verified or not allowed"})
-        return _denied(request, DeniedReason.NOT_AUTHORISED)
+        return _denied(DeniedReason.NOT_AUTHORISED, next_path)
 
     user_id = await _upsert_user(session, sub=str(userinfo["sub"]), email=email)
     token = await create_session(session, user_id, _settings(request))
@@ -170,30 +171,46 @@ async def logout(request: Request, session: DbSession) -> Response:
     return response
 
 
-def _denied(request: Request, reason: DeniedReason) -> RedirectResponse:
-    url = "/auth/denied" if reason is DeniedReason.NOT_AUTHORISED else "/auth/denied?reason=failed"
-    return RedirectResponse(url, status_code=303)
+def _with_next(path: str, params: dict[str, str], next_path: str) -> str:
+    """`path` with its query, plus `next` unless it's the default ("/")."""
+    if next_path != "/":
+        params = {**params, "next": next_path}
+    return f"{path}?{urlencode(params)}" if params else path
 
 
+def _denied(reason: DeniedReason, next_path: str) -> RedirectResponse:
+    """The denied page, remembering where the user was going (e.g. the extension's form)."""
+    params = {} if reason is DeniedReason.NOT_AUTHORISED else {"reason": "failed"}
+    return RedirectResponse(_with_next("/auth/denied", params, next_path), status_code=303)
+
+
+# (title, message, sign-in query, link text). The link keeps the user's destination, so
+# after choosing the right account they land where they were going.
 _PAGES = {
     DeniedReason.NOT_AUTHORISED: (
         "This account isn't authorised",
         "The account you signed in with doesn't have access to this Job Tracker.",
-        "/auth/login?switch_account=true",
+        {"switch_account": "true"},
         "Sign in with a different account",
     ),
     DeniedReason.FAILED: (
         "Sign-in failed",
         "Something went wrong while signing you in. Please try again.",
-        "/auth/login",
+        {},
         "Try again",
     ),
 }
 
 
 @router.get("/denied")
-async def denied(reason: DeniedReason = DeniedReason.NOT_AUTHORISED) -> HTMLResponse:
-    title, message, href, link = (html.escape(part) for part in _PAGES[reason])
+async def denied(
+    reason: DeniedReason = DeniedReason.NOT_AUTHORISED, next: str | None = None
+) -> HTMLResponse:
+    title_text, message_text, login_params, link_text = _PAGES[reason]
+    login_url = _with_next("/auth/login", login_params, safe_next(next))
+    title, message, href, link = (
+        html.escape(part) for part in (title_text, message_text, login_url, link_text)
+    )
     status = 403 if reason is DeniedReason.NOT_AUTHORISED else 400
     body = f"""<!doctype html>
 <html lang="en-GB">

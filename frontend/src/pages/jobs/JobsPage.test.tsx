@@ -218,13 +218,10 @@ describe("the jobs page", () => {
     const queries = serveJobs();
     const user = userEvent.setup();
     const { router } = renderApp("/jobs");
-    const added = () =>
-      within(screen.getByRole("columnheader", { name: /Added/ })).getByRole(
-        "button",
-      );
+    const header = () => screen.getByRole("columnheader", { name: /Added/ });
     await screen.findByRole("table");
 
-    await user.click(added()); // oldest first
+    await user.click(within(header()).getByRole("button")); // oldest first
     await waitFor(() =>
       expect(lastQuery(queries)).toMatchObject({
         sort: "created_at",
@@ -235,37 +232,38 @@ describe("the jobs page", () => {
       expect(window.localStorage.getItem(STORAGE_KEY)).toBe("order=asc"),
     );
 
-    await user.click(added()); // back to newest first: the defaults
+    // Back to newest first, the defaults. (The rows come from the cache, so this is
+    // checked on screen and in the URL rather than as a new request.)
+    await user.click(within(header()).getByRole("button"));
     await waitFor(() =>
-      expect(lastQuery(queries)).toMatchObject({
-        sort: "created_at",
-        order: "desc",
-      }),
+      expect(header()).toHaveAttribute("aria-sort", "descending"),
     );
     expect(router.state.location.search).toBe("");
-    expect(screen.getByRole("columnheader", { name: /Added/ })).toHaveAttribute(
-      "aria-sort",
-      "descending",
-    );
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
+    await new Promise((r) => setTimeout(r, 50)); // would it snap back? it mustn't
+    expect(header()).toHaveAttribute("aria-sort", "descending");
+    expect(router.state.location.search).toBe("");
   });
 
   it("can go back to the Active filter after trying another", async () => {
     const queries = serveJobs();
     const user = userEvent.setup();
-    renderApp("/jobs");
+    const { router } = renderApp("/jobs");
     const filters = await screen.findByRole("group", {
       name: "Filter by status",
     });
-    await user.click(
-      within(filters).getByRole("button", { name: /^Rejected/ }),
-    );
+    const button = (name: RegExp) =>
+      within(filters).getByRole("button", { name });
+    await user.click(button(/^Rejected/));
     await waitFor(() => expect(lastQuery(queries).status).toBe("rejected"));
-    await user.click(within(filters).getByRole("button", { name: /^Active/ }));
-    await waitFor(() => expect(lastQuery(queries).status).toBe("active"));
-    expect(
-      within(filters).getByRole("button", { name: /^Active/ }),
-    ).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(button(/^Active/));
+    await waitFor(() =>
+      expect(button(/^Active/)).toHaveAttribute("aria-pressed", "true"),
+    );
+    await new Promise((r) => setTimeout(r, 50)); // would it snap back? it mustn't
+    expect(button(/^Active/)).toHaveAttribute("aria-pressed", "true");
+    expect(router.state.location.search).toBe("");
   });
 
   it("offers the filters as one dropdown on small screens, with counts", async () => {

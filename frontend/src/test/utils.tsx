@@ -1,15 +1,21 @@
 // Copyright (C) 2026 Luke Brewerton
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { vi } from "vitest";
 
+import { createQueryClient } from "../api/queryClient";
 import { routes } from "../routes";
 
+/** The app's own query client (so its error toasts are exercised), without retries. */
 export function testQueryClient(): QueryClient {
-  return new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const client = createQueryClient();
+  client.setDefaultOptions({
+    queries: { ...client.getDefaultOptions().queries, retry: false },
+  });
+  return client;
 }
 
 /** Render the real routes at `path`, with a fresh query client. */
