@@ -304,7 +304,7 @@ describe("the draft", () => {
     first.unmount();
     navigation.leaving = false;
 
-    renderApp(typed.replace("|", "%7C"));
+    renderApp(typed.replaceAll("|", "%7C"));
     expect(
       await screen.findByText(/You were signed out before this was saved/),
     ).toBeInTheDocument();
