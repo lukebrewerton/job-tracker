@@ -70,3 +70,30 @@ export function daysLabel(days: number): string {
   if (days === 1) return "1 day";
   return `${days} days`;
 }
+
+/** An instant in the browser's zone, e.g. "25 Sep 2026 at 14:03". */
+export function formatDateTime(isoInstant: string): string {
+  const moment = new Date(isoInstant);
+  const date = new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(moment);
+  const time = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(moment);
+  return `${date} at ${time}`;
+}
+
+/** Whole days between an instant and now, in the browser's zone: "today", "3 days ago". */
+export function daysAgo(isoInstant: string, now: Date = new Date()): string {
+  const startOfDay = (d: Date) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round(
+    (startOfDay(now) - startOfDay(new Date(isoInstant))) / 86_400_000,
+  );
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  return `${days} days ago`;
+}
