@@ -3,7 +3,7 @@
 //
 // /jobs/new: the page the browser extension opens, pre-filled from ?url=&title=.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
@@ -15,6 +15,9 @@ import {
   type JobCreate,
 } from "../../api/jobs";
 import type { ErrorMeta } from "../../api/queryClient";
+import { Field } from "../../components/Field";
+import { validationMessages } from "../../lib/formErrors";
+import { inputClass } from "../../lib/styles";
 import { type JobStatus, STATUS_LABELS, STATUSES } from "../../lib/format";
 import { inferSource, SOURCE_LABELS, SOURCES } from "../../lib/source";
 import { readItem, removeItem, writeItem } from "../../lib/storage";
@@ -41,7 +44,7 @@ export interface Fields {
 
 type FieldName = keyof Fields;
 
-const FIELD_NAMES: ReadonlySet<string> = new Set<FieldName>([
+const FIELD_NAMES: ReadonlySet<FieldName> = new Set<FieldName>([
   "company",
   "role",
   "url",
@@ -55,9 +58,6 @@ const FIELD_NAMES: ReadonlySet<string> = new Set<FieldName>([
   "notes",
 ]);
 
-function isFieldName(value: unknown): value is FieldName {
-  return typeof value === "string" && FIELD_NAMES.has(value);
-}
 type FieldErrors = Partial<Record<FieldName | "form", string>>;
 
 /**
@@ -135,33 +135,8 @@ function requestBody(fields: Fields): JobCreate {
   };
 }
 
-/** A 422's messages, by field: shown under the fields rather than as a toast. */
 function fieldErrors(error: ApiError): FieldErrors {
-  const errors: FieldErrors = {};
-  const body = error.body;
-  if (
-    !body ||
-    typeof body !== "object" ||
-    !("detail" in body) ||
-    !Array.isArray(body.detail)
-  ) {
-    return { form: error.message };
-  }
-  const detail: unknown[] = body.detail;
-  for (const item of detail) {
-    if (
-      !item ||
-      typeof item !== "object" ||
-      !("msg" in item) ||
-      !("loc" in item)
-    )
-      continue;
-    const { loc, msg } = item;
-    if (typeof msg !== "string" || !Array.isArray(loc)) continue;
-    const field: unknown = loc[1];
-    errors[isFieldName(field) ? field : "form"] ??= msg;
-  }
-  return errors;
+  return validationMessages(error, FIELD_NAMES);
 }
 
 function useDebounced<T>(value: T, delayMs: number): T {
@@ -215,54 +190,7 @@ function CompanyWarning({ company }: { company: string }) {
   );
 }
 
-const input =
-  "mt-1 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3";
-const label = "block text-sm font-medium text-slate-700";
-
-function Field({
-  name,
-  text,
-  error,
-  hint,
-  children,
-}: {
-  name: string;
-  text: string;
-  error?: string;
-  hint?: string;
-  children: (props: {
-    id: string;
-    "aria-invalid": boolean;
-    "aria-describedby"?: string;
-  }) => ReactNode;
-}) {
-  const id = `new-job-${name}`;
-  const describedBy = [error && `${id}-error`, hint && `${id}-hint`]
-    .filter(Boolean)
-    .join(" ");
-  return (
-    <div>
-      <label htmlFor={id} className={label}>
-        {text}
-      </label>
-      {children({
-        id,
-        "aria-invalid": Boolean(error),
-        "aria-describedby": describedBy || undefined,
-      })}
-      {hint && (
-        <p id={`${id}-hint`} className="mt-1 text-xs text-slate-500">
-          {hint}
-        </p>
-      )}
-      {error && (
-        <p id={`${id}-error`} className="mt-1 text-sm text-rose-700">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
+const input = inputClass;
 
 export function NewJobPage() {
   const [params] = useSearchParams();
@@ -372,7 +300,7 @@ export function NewJobPage() {
       <form onSubmit={submit} className="mt-6 space-y-4">
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <Field name="company" text="Company *" error={errors.company}>
+            <Field id="new-job-company" text="Company *" error={errors.company}>
               {(props) => (
                 <input
                   {...props}
@@ -386,7 +314,7 @@ export function NewJobPage() {
             </Field>
             <CompanyWarning company={fields.company} />
           </div>
-          <Field name="role" text="Role *" error={errors.role}>
+          <Field id="new-job-role" text="Role *" error={errors.role}>
             {(props) => (
               <input
                 {...props}
@@ -399,7 +327,7 @@ export function NewJobPage() {
           </Field>
         </div>
 
-        <Field name="url" text="Job URL" error={errors.url}>
+        <Field id="new-job-url" text="Job URL" error={errors.url}>
           {(props) => (
             <input
               {...props}
@@ -413,7 +341,7 @@ export function NewJobPage() {
         </Field>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <Field name="status" text="Status" error={errors.status}>
+          <Field id="new-job-status" text="Status" error={errors.status}>
             {(props) => (
               <select
                 {...props}
@@ -436,7 +364,7 @@ export function NewJobPage() {
             <div />
           ) : (
             <Field
-              name="applied_at"
+              id="new-job-applied_at"
               text="Applied on"
               error={errors.applied_at}
               hint="Leave blank for today"
@@ -452,7 +380,7 @@ export function NewJobPage() {
               )}
             </Field>
           )}
-          <Field name="source" text="Source" error={errors.source}>
+          <Field id="new-job-source" text="Source" error={errors.source}>
             {(props) => (
               <select
                 {...props}
@@ -469,7 +397,7 @@ export function NewJobPage() {
               </select>
             )}
           </Field>
-          <Field name="location" text="Location" error={errors.location}>
+          <Field id="new-job-location" text="Location" error={errors.location}>
             {(props) => (
               <input
                 {...props}
@@ -486,7 +414,7 @@ export function NewJobPage() {
             More details
           </summary>
           <div className="grid gap-4 pb-3 md:grid-cols-2">
-            <Field name="salary" text="Salary" error={errors.salary}>
+            <Field id="new-job-salary" text="Salary" error={errors.salary}>
               {(props) => (
                 <input
                   {...props}
@@ -498,7 +426,7 @@ export function NewJobPage() {
             </Field>
             <div />
             <Field
-              name="contact_name"
+              id="new-job-contact_name"
               text="Contact name"
               error={errors.contact_name}
             >
@@ -512,7 +440,7 @@ export function NewJobPage() {
               )}
             </Field>
             <Field
-              name="contact_email"
+              id="new-job-contact_email"
               text="Contact email"
               error={errors.contact_email}
             >
@@ -526,7 +454,7 @@ export function NewJobPage() {
               )}
             </Field>
             <div className="md:col-span-2">
-              <Field name="notes" text="Notes" error={errors.notes}>
+              <Field id="new-job-notes" text="Notes" error={errors.notes}>
                 {(props) => (
                   <textarea
                     {...props}

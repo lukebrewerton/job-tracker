@@ -14,11 +14,13 @@ function shouldRetry(failureCount: number, error: unknown): boolean {
 /**
  * Per-query/mutation options, via `meta`:
  * - `silent`: never toast (e.g. a background check whose failure means nothing to the user);
- * - `inlineValidation`: the form shows 422 errors under its fields, so don't toast those.
+ * - `inlineValidation`: the form shows 422 errors under its fields, so don't toast those;
+ * - `expectedStatuses`: statuses the page handles itself (e.g. 404 → "Job not found").
  */
 export interface ErrorMeta extends Record<string, unknown> {
   silent?: boolean;
   inlineValidation?: boolean;
+  expectedStatuses?: number[];
 }
 
 function showError(error: unknown, meta: ErrorMeta | undefined): void {
@@ -38,6 +40,7 @@ function showError(error: unknown, meta: ErrorMeta | undefined): void {
     // A 401 is already on its way to the sign-in page.
     if (error.status === 401) return;
     if (error.status === 422 && meta?.inlineValidation) return;
+    if (meta?.expectedStatuses?.includes(error.status)) return;
   }
   toast.error(error instanceof Error ? error.message : "Something went wrong");
 }

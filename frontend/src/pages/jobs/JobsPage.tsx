@@ -10,17 +10,16 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { type Job, listJobs } from "../../api/jobs";
+import { AttentionLabel, StatusBadge } from "../../components/Badges";
 import {
   ACTIVE_STATUSES,
-  ATTENTION_LABELS,
-  type Attention,
   daysLabel,
   formatDate,
   formatInstantDate,
-  type JobStatus,
   STATUS_LABELS,
   STATUSES,
 } from "../../lib/format";
+import { ATTENTION_STYLE, tapTarget } from "../../lib/styles";
 import {
   DEFAULT_VIEW,
   PAGE_SIZES,
@@ -33,46 +32,7 @@ import {
 const MIN_SEARCH_CHARS = 2;
 const SEARCH_DELAY_MS = 300;
 
-const target = "inline-flex min-h-11 items-center rounded-md px-3";
-
-const STATUS_BADGE: Record<JobStatus, string> = {
-  saved: "bg-slate-100 text-slate-700",
-  applied: "bg-blue-100 text-blue-800",
-  interviewing: "bg-violet-100 text-violet-800",
-  offer: "bg-emerald-100 text-emerald-800",
-  accepted: "bg-emerald-200 text-emerald-900",
-  rejected: "bg-rose-100 text-rose-800",
-  withdrawn: "bg-slate-200 text-slate-700",
-  no_response: "bg-amber-100 text-amber-800",
-};
-
-// Highlighted rows: a tint plus a text label, so meaning never rests on colour alone.
-const ATTENTION_STYLE: Record<Attention, { row: string; label: string }> = {
-  needs_follow_up: { row: "bg-amber-50", label: "bg-amber-200 text-amber-900" },
-  still_to_apply: { row: "bg-sky-50", label: "bg-sky-200 text-sky-900" },
-  no_response: { row: "bg-rose-50", label: "bg-rose-200 text-rose-900" },
-};
-
-function StatusBadge({ status }: { status: JobStatus }) {
-  return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[status]}`}
-    >
-      {STATUS_LABELS[status]}
-    </span>
-  );
-}
-
-function AttentionLabel({ attention }: { attention: Job["attention"] }) {
-  if (!attention) return null;
-  return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-xs font-medium ${ATTENTION_STYLE[attention].label}`}
-    >
-      {ATTENTION_LABELS[attention]}
-    </span>
-  );
-}
+const target = tapTarget;
 
 const features = tableFeatures({});
 const column = createColumnHelper<typeof features, Job>();
