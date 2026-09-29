@@ -43,6 +43,9 @@ describe("the header, signed in", () => {
       within(header).getByRole("link", { name: "New job" }),
     ).toHaveAttribute("href", "/jobs/new");
     expect(
+      within(header).getByRole("link", { name: "Job Tracker" }),
+    ).toHaveAttribute("href", "/dashboard");
+    expect(
       within(header).getByRole("button", { name: "Log out" }),
     ).toBeInTheDocument();
   });
@@ -158,20 +161,22 @@ describe("the front page", () => {
     expect(
       screen.queryByRole("navigation", { name: "Main" }),
     ).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole("banner")).getByRole("link", {
+        name: "Job Tracker",
+      }),
+    ).toHaveAttribute("href", "/");
     expect(assign).not.toHaveBeenCalled(); // no bounce to the sign-in page
   });
 
-  it("links to the pages when signed in", async () => {
+  it("sends you to the dashboard when signed in", async () => {
     signedIn();
-    renderApp("/");
-    const goTo = await screen.findByRole("navigation", { name: "Go to" });
+    const { router } = renderApp("/");
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/dashboard"),
+    );
     expect(
-      within(goTo)
-        .getAllByRole("link")
-        .map((a) => a.getAttribute("href")),
-    ).toEqual(["/dashboard", "/jobs", "/interviews"]);
-    expect(
-      screen.getByText(ME.email, { selector: "span.font-medium" }),
+      await screen.findByRole("heading", { name: "Dashboard" }),
     ).toBeInTheDocument();
   });
 });

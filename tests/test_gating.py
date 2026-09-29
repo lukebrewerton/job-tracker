@@ -82,15 +82,21 @@ async def test_expired_session_redirects_to_sign_in(
 
 
 async def test_signed_in_page_load_gets_the_app(client: TestClient, db_engine: AsyncEngine) -> None:
-    token = await _session_token(db_engine)
-    resp = client.get("/jobs", headers={"cookie": f"{COOKIE_NAME}={token}"})
+    cookie = {"cookie": f"{COOKIE_NAME}={await _session_token(db_engine)}"}
+    resp = client.get("/jobs", headers=cookie)
     assert resp.status_code == 200
     assert "<div id=root>" in resp.text
+    # Except the front page, which goes straight to the dashboard (as does an installed
+    # home-screen app, and signing in with no `next`).
+    for front in ("/", "/?signed_out=1"):
+        resp = client.get(front, headers=cookie)
+        assert resp.status_code == 302
+        assert resp.headers["location"] == "/dashboard"
 
 
 @pytest.mark.parametrize("url", ["/", "/?signed_out=1"])
 def test_the_front_page_is_public(client: TestClient, url: str) -> None:
-    # It shows "Sign in" when signed out, and is where logout lands.
+    # Signed out, it shows "Sign in", and is where logout lands.
     resp = client.get(url)
     assert resp.status_code == 200
     assert "<div id=root>" in resp.text
