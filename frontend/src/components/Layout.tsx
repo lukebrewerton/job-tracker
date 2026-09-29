@@ -76,7 +76,7 @@ export function Layout() {
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-2">
           <Link
-            to="/"
+            to={signedIn ? "/dashboard" : "/"}
             onClick={closeMenu}
             // May wrap onto two lines: the title gives way, never the buttons.
             className="-ml-3 inline-flex min-h-11 min-w-0 items-center gap-2 rounded-md px-3 text-lg font-semibold"

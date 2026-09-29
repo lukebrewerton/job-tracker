@@ -11,7 +11,9 @@ JSON 404, not an HTML page.
 
 The app shell (`index.html`) is only served to a signed-in user, except on the public
 front page (`/`), which shows a sign-in button when you're signed out (and is where
-logout lands, so Google can't silently sign you straight back in). Anywhere else, the
+logout lands, so Google can't silently sign you straight back in). Signed in, `/` goes
+straight to the dashboard (which is also what an installed home-screen app opens on,
+and where signing in with no `next` ends up). Anywhere else, the
 browser is sent to sign in and brought back to the exact URL afterwards — which is what
 makes the extension's `/jobs/new?url=…` link work on a cold start. Built files stay
 public: they contain no data, and the shell fetches all data from the gated API.
@@ -54,6 +56,9 @@ def mount_spa(app: FastAPI, static_dir: Path) -> None:
             # is_relative_to blocks `..` traversal out of the build directory.
             if candidate.is_relative_to(root) and candidate.is_file():
                 return FileResponse(candidate)
+
+        if user is not None and path == "":
+            return RedirectResponse("/dashboard", status_code=302)
 
         if user is None and path not in PUBLIC_PAGES:
             target = request.url.path + (f"?{request.url.query}" if request.url.query else "")
