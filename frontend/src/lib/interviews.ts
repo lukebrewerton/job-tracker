@@ -60,3 +60,22 @@ export function formatWhen(isoInstant: string): string {
   const time = part(d, { hour: "2-digit", minute: "2-digit" });
   return `${formatDay(isoInstant)} ${year}, ${time}`;
 }
+
+const sameDay = (a: Date, b: Date) =>
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
+
+/** "Today, 14:00", "Tomorrow, 14:00", else as formatWhen: in the browser's zone. */
+export function formatWhenRelative(
+  isoInstant: string,
+  now: Date = new Date(),
+): string {
+  const d = new Date(isoInstant);
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  const time = part(d, { hour: "2-digit", minute: "2-digit" });
+  if (sameDay(d, now)) return `Today, ${time}`;
+  if (sameDay(d, tomorrow)) return `Tomorrow, ${time}`;
+  return formatWhen(isoInstant);
+}

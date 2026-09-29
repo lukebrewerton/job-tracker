@@ -6,6 +6,13 @@ import type { components } from "./schema";
 export type Interview = components["schemas"]["InterviewOut"];
 export type InterviewInput = components["schemas"]["InterviewCreate"];
 export type InterviewMode = components["schemas"]["InterviewMode"];
+export type InterviewWithJob = components["schemas"]["InterviewWithJob"];
+export type InterviewGroups = components["schemas"]["InterviewGroups"];
+
+/** All your interviews: upcoming, not yet scheduled and past. */
+export function listInterviewGroups(): Promise<InterviewGroups> {
+  return unwrap(api.GET("/api/interviews"));
+}
 
 export function listInterviews(jobId: string): Promise<Interview[]> {
   return unwrap(
