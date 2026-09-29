@@ -79,8 +79,15 @@ export function Layout() {
             to="/"
             onClick={closeMenu}
             // May wrap onto two lines: the title gives way, never the buttons.
-            className="-ml-3 inline-flex min-h-11 min-w-0 items-center rounded-md px-3 text-lg font-semibold"
+            className="-ml-3 inline-flex min-h-11 min-w-0 items-center gap-2 rounded-md px-3 text-lg font-semibold"
           >
+            <img
+              src="/icon.svg"
+              alt=""
+              width={28}
+              height={28}
+              className="shrink-0"
+            />
             Job Tracker
           </Link>
 

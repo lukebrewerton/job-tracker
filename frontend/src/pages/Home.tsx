@@ -15,6 +15,13 @@ export function Home() {
 
   return (
     <section className="mx-auto max-w-xl py-8 text-center">
+      <img
+        src="/logo.svg"
+        alt=""
+        width={96}
+        height={96}
+        className="mx-auto mb-4"
+      />
       <h1 className="text-3xl font-semibold">Job Tracker</h1>
       <p className="mt-3 text-slate-600">
         Keep track of the jobs you've saved, applied for and interviewed for,

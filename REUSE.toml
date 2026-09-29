@@ -1,0 +1,17 @@
+# Copyright (C) 2026 Luke Brewerton
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Licence information for files that can't carry a header (https://reuse.software).
+# The code is AGPL-3.0-or-later (LICENSE); the logo and icons are not: see README → Branding.
+version = 1
+
+[[annotations]]
+path = [
+  "branding/**",
+  "frontend/public/*.png",
+  "frontend/public/*.svg",
+  "frontend/public/favicon.ico",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Luke Brewerton"
+SPDX-License-Identifier = "CC-BY-NC-ND-4.0"
