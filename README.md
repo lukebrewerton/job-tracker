@@ -88,3 +88,16 @@ make hooks-off          # turn it off again
 
 [AGPL-3.0-or-later](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) for how
 contributions are licensed, and [SECURITY.md](SECURITY.md) to report a vulnerability.
+
+The code is AGPL-3.0-or-later; the logo and icons are not (see [Branding](#branding)).
+
+## Branding
+
+The Job Tracker logo and icons (`branding/`, and the icons in `frontend/public/`) are
+© 2026 Luke Brewerton, licensed under
+[CC BY-NC-ND 4.0](LICENSES/CC-BY-NC-ND-4.0.txt): you may share them unchanged, with
+credit, for non-commercial purposes, but not modify them.
+
+They identify this project. Running your own instance of it is fine, logo and all. If
+you fork it and change the app, please use your own logo and name, so nobody mistakes
+your version for this one.
