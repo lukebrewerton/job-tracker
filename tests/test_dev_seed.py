@@ -2,15 +2,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The development seed command: it only ever touches one user's own sample jobs."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from app import dev_seed
+from app import dev_seed, interviews
 from app.dev_seed import SAMPLE_MARKER, SeedError, seed
 
 from .conftest import make_settings
@@ -56,6 +56,26 @@ async def test_seeds_a_varied_set_for_the_user(db_engine: AsyncEngine) -> None:
         "(SELECT 1 FROM status_history h WHERE h.job_id = j.id)",
     )
     assert orphans == []
+
+
+async def test_seeds_interviews_for_every_group_on_the_interviews_page(
+    db_engine: AsyncEngine,
+) -> None:
+    user, _ = await new_user(db_engine)
+    await seed(db_engine, await _email(db_engine, user), now=NOW)
+    async with db_engine.begin() as conn:
+        await conn.execute(text("SELECT set_config('app.user_id', :u, true)"), {"u": str(user)})
+        groups = await interviews.grouped(AsyncSession(bind=conn), user, now=NOW)
+
+    upcoming_days = {i.scheduled_at.date() for i, _ in groups.upcoming if i.scheduled_at}
+    assert {NOW.date(), (NOW + timedelta(days=1)).date()} <= upcoming_days  # today, tomorrow
+    assert any(job.status == "withdrawn" for _, job in groups.upcoming)  # a closed job's booking
+    assert groups.not_yet_scheduled
+    assert groups.past
+    everything = groups.upcoming + groups.not_yet_scheduled + groups.past
+    assert {i.mode for i, _ in everything} == {"remote", "in_person", "phone", None}
+    assert "Pairing session" in {i.round_label for i, _ in everything}  # not a preset
+    assert any(i.notes for i, _ in everything)
 
 
 async def test_running_again_replaces_only_its_own_sample_jobs(db_engine: AsyncEngine) -> None:

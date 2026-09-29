@@ -4,9 +4,10 @@
 
 Adds about 60 varied jobs to one existing user (sign in once first): every status,
 status changes backdated so each dashboard list is populated, long names, and enough
-rows to page through, plus some interviews. Development only: it refuses to run unless
-ENVIRONMENT=development. Running it again replaces its own sample jobs (marked in their
-notes) and never touches anything else: not the user's other jobs, not other users.
+rows to page through, plus interviews for every group on the interviews page.
+Development only: it refuses to run unless ENVIRONMENT=development. Running it again
+replaces its own sample jobs (marked in their notes) and never touches anything else:
+not the user's other jobs, not other users.
 """
 
 import asyncio
@@ -65,8 +66,65 @@ MIX: list[tuple[JobStatus, int, tuple[int, int]]] = [
 ]
 
 
+# An interview: (when, mode, round label, notes).
+SeedInterview = tuple[datetime | None, str | None, str | None, str | None]
+
+
 class SeedError(Exception):
     pass
+
+
+def _on_the_hour(at: datetime) -> datetime:
+    return at.replace(minute=0, second=0, microsecond=0)
+
+
+def _interviews(
+    status: JobStatus,
+    nth: int,
+    rng: random.Random,
+    *,
+    now: datetime,
+    created: datetime,
+    changed: datetime,
+    interviewed: datetime | None,
+) -> list[SeedInterview]:
+    """The nth job of a status's interviews: a fixed plan, so every case always appears.
+
+    Upcoming ones today, tomorrow and later; unscheduled ones; past ones; every mode; a
+    custom round; notes; and a withdrawn job's booking, which stays under Upcoming but
+    whose undated interview doesn't appear under Not yet scheduled.
+    """
+
+    def past() -> datetime:
+        at = changed - timedelta(days=rng.randint(1, 4), hours=rng.randint(0, 6))
+        return _on_the_hour(min(max(at, created + timedelta(hours=1)), now - timedelta(hours=1)))
+
+    def ahead(days: int, hour_offset: int = 0) -> datetime:
+        return _on_the_hour(now + timedelta(days=days, hours=hour_offset))
+
+    match status:
+        case JobStatus.INTERVIEWING:
+            screen: SeedInterview = (past(), "phone", "Phone screen", None)
+            next_round: list[SeedInterview] = [
+                (ahead(0, 3), "remote", "Technical", "Bring a laptop: pairing in Python."),
+                (ahead(1), "in_person", "Hiring manager", None),
+                (ahead(3), "remote", "Pairing session", None),  # a custom round
+                (ahead(7), None, "Panel", None),
+                (None, "remote", "Final", None),
+                (None, None, None, None),
+            ]
+            return [screen, next_round[nth % len(next_round)]]
+        case JobStatus.OFFER:
+            return [(past(), "remote", "Technical", None), (past(), "in_person", "Final", None)]
+        case JobStatus.REJECTED if interviewed is not None:
+            return [(_on_the_hour(interviewed), "remote", "Technical", "Felt it went well.")]
+        case JobStatus.WITHDRAWN if nth == 0:
+            return [
+                (ahead(5), "phone", "Recruiter call", "Withdrew: cancel this call."),
+                (None, None, "Technical", None),
+            ]
+        case _:
+            return []
 
 
 async def seed(engine: AsyncEngine, email: str, *, now: datetime) -> int:
@@ -88,7 +146,7 @@ async def seed(engine: AsyncEngine, email: str, *, now: datetime) -> int:
 
         added = 0
         for status, count, (min_days, max_days) in MIX:
-            for _ in range(count):
+            for nth in range(count):
                 days = rng.randint(min_days, max_days)
                 changed = now - timedelta(days=days, hours=rng.randint(0, 20))
                 created = changed - timedelta(days=rng.randint(0, 30))
@@ -116,9 +174,11 @@ async def seed(engine: AsyncEngine, email: str, *, now: datetime) -> int:
                     )
                 ).scalar_one()
                 history = [(JobStatus.SAVED, created)]
+                interviewed: datetime | None = None
                 if status == JobStatus.REJECTED and rng.random() < 0.5:
                     # Rejected after an interview, for the dashboard's split.
-                    history.append((JobStatus.INTERVIEWING, created + (changed - created) / 2))
+                    interviewed = created + (changed - created) / 2
+                    history.append((JobStatus.INTERVIEWING, interviewed))
                 if status != JobStatus.SAVED:
                     history.append((status, changed))
                 for history_status, at in history:
@@ -129,20 +189,23 @@ async def seed(engine: AsyncEngine, email: str, *, now: datetime) -> int:
                         ),
                         {"j": job_id, "u": user_id, "s": history_status.value, "t": at},
                     )
-                if status == JobStatus.INTERVIEWING:
-                    for offset_days, label in ((rng.randint(1, 10), "Technical"), (None, None)):
-                        await conn.execute(
-                            text(
-                                "INSERT INTO interviews (job_id, user_id, scheduled_at, mode, "
-                                "round_label) VALUES (:j, :u, :t, 'remote', :l)"
-                            ),
-                            {
-                                "j": job_id,
-                                "u": user_id,
-                                "t": now + timedelta(days=offset_days) if offset_days else None,
-                                "l": label,
-                            },
-                        )
+                planned = _interviews(
+                    status,
+                    nth,
+                    rng,
+                    now=now,
+                    created=created,
+                    changed=changed,
+                    interviewed=interviewed,
+                )
+                for when, mode, label, notes in planned:
+                    await conn.execute(
+                        text(
+                            "INSERT INTO interviews (job_id, user_id, scheduled_at, mode, "
+                            "round_label, notes) VALUES (:j, :u, :t, :m, :l, :n)"
+                        ),
+                        {"j": job_id, "u": user_id, "t": when, "m": mode, "l": label, "n": notes},
+                    )
                 added += 1
     return added
 

@@ -4,7 +4,8 @@
 // The job page's interviews: listed, added and edited inline (one form at a time), and
 // deleted after a confirmation.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router";
 
 import { ApiError } from "../../api/client";
 import {
@@ -303,6 +304,15 @@ export function Interviews({ job }: { job: Job }) {
   const [suggestInterviewing, setSuggestInterviewing] = useState(false);
   const [deleting, setDeleting] = useState<Interview | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
+  const section = useRef<HTMLElement>(null);
+  const { hash } = useLocation();
+
+  // Linked to as /jobs/:id#interviews (from the interviews page): scroll here once the
+  // list is in, as the router doesn't, and this section renders after the job loads.
+  const loaded = interviews !== undefined;
+  useEffect(() => {
+    if (loaded && hash === "#interviews") section.current?.scrollIntoView();
+  }, [loaded, hash]);
 
   const remove = useMutation({
     mutationFn: (interview: Interview) => deleteInterview(job.id, interview.id),
@@ -322,7 +332,12 @@ export function Interviews({ job }: { job: Job }) {
   };
 
   return (
-    <section aria-labelledby="interviews-heading" className="mt-8">
+    <section
+      ref={section}
+      id="interviews"
+      aria-labelledby="interviews-heading"
+      className="mt-8 scroll-mt-4"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="interviews-heading" className="text-lg font-semibold">
           Interviews

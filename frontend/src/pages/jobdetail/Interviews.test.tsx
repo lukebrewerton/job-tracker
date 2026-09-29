@@ -139,6 +139,16 @@ describe("listing", () => {
     ).toBeInTheDocument();
   });
 
+  it("scrolls into view when linked to as #interviews", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView; // jsdom lacks it
+    serve([interview({ round_label: "Technical" })]);
+    renderApp(`/jobs/${ID}#interviews`);
+    const region = await section();
+    await within(region).findByText("Technical");
+    expect(scrollIntoView.mock.contexts).toContain(region);
+  });
+
   it("says when there are none", async () => {
     serve();
     renderApp(`/jobs/${ID}`);
