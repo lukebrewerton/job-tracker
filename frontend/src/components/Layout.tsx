@@ -7,8 +7,11 @@ import { toast } from "sonner";
 import { logout, useMe, useTimezoneSync } from "../api/me";
 import { NAV_LINKS, SIGN_IN_URL } from "../nav";
 
-// At least 44px tall: comfortable touch targets.
-const target = "inline-flex min-h-11 items-center rounded-md px-3";
+// At least 44px tall: comfortable touch targets. The box has no display of its own, so
+// something hidden on mobile can take `hidden md:inline-flex` without a clashing
+// `inline-flex` (which would win, and show it anyway).
+const targetBox = "min-h-11 items-center rounded-md px-3 whitespace-nowrap";
+const target = `inline-flex ${targetBox}`;
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `${target} ${isActive ? "bg-slate-200 font-medium text-slate-900" : "text-slate-600 hover:bg-slate-100"}`;
 
@@ -75,7 +78,8 @@ export function Layout() {
           <Link
             to="/"
             onClick={closeMenu}
-            className={`${target} -ml-3 text-lg font-semibold`}
+            // May wrap onto two lines: the title gives way, never the buttons.
+            className="-ml-3 inline-flex min-h-11 min-w-0 items-center rounded-md px-3 text-lg font-semibold"
           >
             Job Tracker
           </Link>
@@ -90,7 +94,7 @@ export function Layout() {
             </nav>
           )}
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             {signedIn ? (
               <>
                 <Link
@@ -107,7 +111,7 @@ export function Layout() {
                   type="button"
                   onClick={() => void signOut()}
                   disabled={pending}
-                  className={`${target} hidden text-slate-600 hover:bg-slate-100 disabled:opacity-50 md:inline-flex`}
+                  className={`${targetBox} hidden text-slate-600 hover:bg-slate-100 disabled:opacity-50 md:inline-flex`}
                 >
                   {pending ? "Signing out…" : "Log out"}
                 </button>
