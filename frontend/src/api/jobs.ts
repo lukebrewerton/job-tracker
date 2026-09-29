@@ -72,6 +72,16 @@ export function changeStatus(id: string, status: JobStatusValue): Promise<Job> {
   );
 }
 
+export type BulkStatusResult = components["schemas"]["BulkStatusResult"];
+
+/** Set many jobs' status at once, all or nothing. */
+export function bulkChangeStatus(
+  ids: string[],
+  status: JobStatusValue,
+): Promise<BulkStatusResult> {
+  return unwrap(api.POST("/api/jobs/bulk-status", { body: { ids, status } }));
+}
+
 export function jobHistory(id: string): Promise<HistoryEntry[]> {
   return unwrap(
     api.GET("/api/jobs/{job_id}/history", { params: { path: { job_id: id } } }),
