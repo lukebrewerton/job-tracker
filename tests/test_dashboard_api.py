@@ -283,9 +283,16 @@ def test_invalid_thresholds_are_rejected(static_dir: Path, stale: int, no_respon
 
 
 async def test_the_isolation_data_fills_every_part_of_its_owners_dashboard(
-    api: TestClient, db_engine: AsyncEngine, user: tuple[uuid.UUID, str]
+    api: TestClient,
+    db_engine: AsyncEngine,
+    user: tuple[uuid.UUID, str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Otherwise B's empty dashboard in the isolation test would prove nothing."""
+    # That data is dated by the database's real clock (as in the isolation test itself),
+    # so this test uses the real clock too, not this module's pinned NOW: with NOW, it
+    # only passed within a few days of NOW's date.
+    monkeypatch.setattr(timezones, "now", lambda: datetime.now(UTC))
     async with db_engine.begin() as conn:
         await conn.execute(text("SELECT set_config('app.user_id', :u, true)"), {"u": str(user[0])})
         await _alices_busy_dashboard(conn, user[0])

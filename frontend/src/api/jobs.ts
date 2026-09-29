@@ -83,12 +83,3 @@ export async function deleteJob(id: string): Promise<void> {
     api.DELETE("/api/jobs/{job_id}", { params: { path: { job_id: id } } }),
   );
 }
-
-export async function interviewCount(jobId: string): Promise<number> {
-  const interviews = await unwrap(
-    api.GET("/api/jobs/{job_id}/interviews", {
-      params: { path: { job_id: jobId } },
-    }),
-  );
-  return interviews.length;
-}

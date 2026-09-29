@@ -9,6 +9,8 @@ export default mergeConfig(
   defineConfig({
     test: {
       environment: "jsdom",
+      // A fixed zone with daylight saving, so date/time tests mean the same everywhere.
+      env: { TZ: "Europe/London" },
       setupFiles: ["./src/test/setup.ts"],
       restoreMocks: true,
     },
