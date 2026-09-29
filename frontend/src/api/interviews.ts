@@ -1,0 +1,52 @@
+// Copyright (C) 2026 Luke Brewerton
+// SPDX-License-Identifier: AGPL-3.0-or-later
+import { api, expectNoContent, unwrap } from "./client";
+import type { components } from "./schema";
+
+export type Interview = components["schemas"]["InterviewOut"];
+export type InterviewInput = components["schemas"]["InterviewCreate"];
+export type InterviewMode = components["schemas"]["InterviewMode"];
+
+export function listInterviews(jobId: string): Promise<Interview[]> {
+  return unwrap(
+    api.GET("/api/jobs/{job_id}/interviews", {
+      params: { path: { job_id: jobId } },
+    }),
+  );
+}
+
+export function createInterview(
+  jobId: string,
+  body: InterviewInput,
+): Promise<Interview> {
+  return unwrap(
+    api.POST("/api/jobs/{job_id}/interviews", {
+      params: { path: { job_id: jobId } },
+      body,
+    }),
+  );
+}
+
+export function updateInterview(
+  jobId: string,
+  interviewId: string,
+  body: InterviewInput,
+): Promise<Interview> {
+  return unwrap(
+    api.PATCH("/api/jobs/{job_id}/interviews/{interview_id}", {
+      params: { path: { job_id: jobId, interview_id: interviewId } },
+      body,
+    }),
+  );
+}
+
+export async function deleteInterview(
+  jobId: string,
+  interviewId: string,
+): Promise<void> {
+  await expectNoContent(
+    api.DELETE("/api/jobs/{job_id}/interviews/{interview_id}", {
+      params: { path: { job_id: jobId, interview_id: interviewId } },
+    }),
+  );
+}

@@ -46,7 +46,27 @@ function serve(extra: Handlers = {}) {
     "GET /api/me": () => json(ME),
     [`GET /api/jobs/${ID}`]: () => json(job()),
     [`GET /api/jobs/${ID}/history`]: () => json(HISTORY),
-    [`GET /api/jobs/${ID}/interviews`]: () => json([{}, {}]),
+    [`GET /api/jobs/${ID}/interviews`]: () =>
+      json([
+        {
+          id: "0199cccc-0000-7000-8000-000000000001",
+          job_id: ID,
+          scheduled_at: null,
+          mode: null,
+          round_label: "Phone screen",
+          notes: null,
+          created_at: "2026-09-10T09:00:00Z",
+        },
+        {
+          id: "0199cccc-0000-7000-8000-000000000002",
+          job_id: ID,
+          scheduled_at: null,
+          mode: null,
+          round_label: null,
+          notes: null,
+          created_at: "2026-09-11T09:00:00Z",
+        },
+      ]),
     "GET /api/jobs": () =>
       json({ items: [], total: 0, page: 1, page_size: 25, counts: {} }),
     ...extra,
@@ -79,7 +99,9 @@ describe("the job page", () => {
     expect(screen.getByLabelText("Company *")).toHaveValue("Acme Ltd");
     expect(screen.getByLabelText("Location")).toHaveValue("London");
     expect(screen.getByLabelText("Applied on")).toHaveValue("2026-09-10");
-    const history = await screen.findByRole("list");
+    const history = within(
+      await screen.findByRole("region", { name: "Status history" }),
+    ).getByRole("list");
     expect(within(history).getAllByRole("listitem")).toHaveLength(2);
   });
 

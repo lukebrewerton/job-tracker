@@ -9,11 +9,10 @@ import { Link, useBlocker, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
 import { ApiError } from "../../api/client";
+import { listInterviews } from "../../api/interviews";
 import {
-  changeStatus,
   deleteJob,
   getJob,
-  interviewCount,
   type Job,
   jobHistory,
   type JobUpdate,
@@ -26,11 +25,17 @@ import {
   daysAgo,
   daysLabel,
   formatDateTime,
-  type JobStatus,
   STATUS_LABELS,
   STATUSES,
 } from "../../lib/format";
 import { validationMessages } from "../../lib/formErrors";
+import { Interviews } from "./Interviews";
+import {
+  historyKey,
+  interviewsKey,
+  jobKey,
+  useChangeStatus,
+} from "./useChangeStatus";
 import { SOURCE_LABELS, SOURCES } from "../../lib/source";
 import { inputClass, tapTarget } from "../../lib/styles";
 
@@ -101,37 +106,8 @@ function changesBody(changed: Partial<Fields>): JobUpdate {
   return body;
 }
 
-const jobKey = (id: string) => ["job", id] as const;
-const historyKey = (id: string) => ["job-history", id] as const;
-
 function StatusPicker({ job }: { job: Job }) {
-  const queryClient = useQueryClient();
-  const change = useMutation({
-    mutationFn: (status: JobStatus) => changeStatus(job.id, status),
-    meta: { silent: true } satisfies ErrorMeta, // its own toast below
-    // Optimistic: show the new status straight away...
-    onMutate: async (status) => {
-      await queryClient.cancelQueries({ queryKey: jobKey(job.id) });
-      const previous = queryClient.getQueryData<Job>(jobKey(job.id));
-      if (previous)
-        queryClient.setQueryData<Job>(jobKey(job.id), { ...previous, status });
-      return { previous };
-    },
-    // ...and put it back, visibly, if the save fails.
-    onError: (error, _status, context) => {
-      if (context?.previous)
-        queryClient.setQueryData(jobKey(job.id), context.previous);
-      if (error instanceof ApiError && error.status === 401) return; // off to sign in
-      toast.error(`Couldn't change the status: ${error.message}`);
-    },
-    onSuccess: (updated) => queryClient.setQueryData(jobKey(job.id), updated),
-    onSettled: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: historyKey(job.id) }),
-        queryClient.invalidateQueries({ queryKey: ["jobs"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
-      ]),
-  });
+  const change = useChangeStatus(job.id);
 
   return (
     <div>
@@ -192,11 +168,12 @@ function Timeline({ jobId }: { jobId: string }) {
 function DeleteJob({ job, onDeleted }: { job: Job; onDeleted: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
-  const { data: interviews } = useQuery({
-    queryKey: ["job-interview-count", job.id],
-    queryFn: () => interviewCount(job.id),
+  const { data: interviewList } = useQuery({
+    queryKey: interviewsKey(job.id),
+    queryFn: () => listInterviews(job.id),
     enabled: open,
   });
+  const interviews = interviewList?.length;
   const remove = useMutation({
     mutationFn: () => deleteJob(job.id),
     onSuccess: onDeleted,
@@ -468,6 +445,8 @@ function Details({ job }: { job: Job }) {
           </div>
         )}
       </form>
+
+      <Interviews job={job} />
 
       <div className="mt-8 border-t border-slate-200 pt-6">
         <DeleteJob job={job} onDeleted={onDeleted} />
