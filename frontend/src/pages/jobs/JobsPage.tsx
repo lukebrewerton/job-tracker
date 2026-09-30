@@ -13,9 +13,11 @@ import { type Job, listJobs } from "../../api/jobs";
 import { AttentionLabel, StatusBadge } from "../../components/Badges";
 import {
   ACTIVE_STATUSES,
+  CLOSED_STATUSES,
   daysLabel,
   formatDate,
   formatInstantDate,
+  type JobStatus,
   STATUS_LABELS,
   STATUSES,
 } from "../../lib/format";
@@ -149,12 +151,16 @@ export function JobsPage() {
     if (!counts) return undefined;
     if (filter === "all")
       return Object.values(counts).reduce((a, b) => a + b, 0);
-    if (filter === "active")
-      return ACTIVE_STATUSES.reduce((sum, s) => sum + (counts[s] ?? 0), 0);
+    const sumOf = (statuses: readonly JobStatus[]) =>
+      statuses.reduce((sum, s) => sum + (counts[s] ?? 0), 0);
+    if (filter === "active") return sumOf(ACTIVE_STATUSES);
+    if (filter === "closed") return sumOf(CLOSED_STATUSES);
     return counts[filter];
   };
+  // The groups first, then each status.
   const filters: { id: StatusFilter; label: string }[] = [
     { id: "active", label: "Active" },
+    { id: "closed", label: "Closed" },
     { id: "all", label: "All" },
     ...STATUSES.map((s) => ({ id: s, label: STATUS_LABELS[s] })),
   ];

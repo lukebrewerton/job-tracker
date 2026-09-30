@@ -1285,7 +1285,7 @@
     },
     "/api/jobs": {
       "get": {
-        "description": "Jobs matching the filter (a status, `active` or `all`) and search, one page at a time.\n\n`q` searches company and role (case-insensitive, at least 2 characters). `counts`\ngives every status's total across all your jobs, ignoring the filter and search.",
+        "description": "Jobs matching the filter and search, one page at a time.\n\nThe filter is a status, or a group: `active` (saved, applied, interviewing, offer),\n`closed` (rejected, withdrawn, no response) or `all`.\n\n`q` searches company and role (case-insensitive, at least 2 characters). `counts`\ngives every status's total across all your jobs, ignoring the filter and search.",
         "operationId": "list_jobs_api_jobs_get",
         "parameters": [
           {
@@ -1297,6 +1297,7 @@
                 {
                   "enum": [
                     "active",
+                    "closed",
                     "all"
                   ],
                   "type": "string"
