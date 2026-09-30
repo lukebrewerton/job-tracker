@@ -20,6 +20,8 @@ name: CI
 on:
   pull_request:
     branches: [main]
+    # labeled/unlabeled too: adding or removing `breaking-api` re-runs the check it overrides.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   push:
     branches: [main]
 
@@ -47,6 +49,18 @@ jobs:
           enable-cache: true
       - run: uv sync --frozen
       - run: make lint-api
+      # PRs only: compare the PR's openapi.json with its base branch's, and fail on changes
+      # that would break a client (README → API versions). The `breaking-api` label turns
+      # a failure into a report, for a deliberate break. Not on pushes to main: the PR
+      # already checked, and main compared with itself would prove nothing.
+      - name: Breaking API changes
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          ALLOW_BREAKING: ${{ contains(github.event.pull_request.labels.*.name, 'breaking-api') && '1' || '' }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          make api-breaking API_BASE="origin/$BASE_REF" ALLOW_BREAKING="$ALLOW_BREAKING"
 
   test-api:
     runs-on: ubuntu-24.04

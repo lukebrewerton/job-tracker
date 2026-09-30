@@ -1,6 +1,7 @@
 .PHONY: help sync sync-api sync-web lock dev dev-web build-web up down db-reset image image-run \
 	lint lint-api lint-web format format-api format-web test test-api test-web \
-	secrets-scan hooks hooks-off migrate migration restore seed openapi openapi-check types types-check
+	secrets-scan hooks hooks-off migrate migration restore seed openapi openapi-check types types-check \
+	version-check api-breaking
 
 WEB := frontend
 
@@ -96,7 +97,7 @@ hooks-off: ## Opt out: disable the repo's git hooks for this clone
 
 lint: lint-api lint-web ## Lint, format-check and type-check everything
 
-lint-api: openapi-check ## ruff check + ruff format --check + mypy, and openapi.json is current
+lint-api: openapi-check version-check ## ruff check + ruff format --check + mypy, openapi.json current, versions agree
 	uv run ruff check .
 	uv run ruff format --check .
 	uv run mypy
@@ -120,6 +121,20 @@ openapi: ## Write openapi.json from the backend code (run after changing the API
 openapi-check: ## Fail if openapi.json doesn't match the backend code
 	@uv run python -m app.openapi_export | diff -q openapi.json - > /dev/null \
 		|| { echo "openapi.json is out of date: run 'make openapi' and commit it."; exit 1; }
+
+version-check: ## Fail unless the three version numbers agree, and MAJOR = the newest API version
+	@uv run python -m app.version_check
+
+# oasdiff (Apache-2.0) via its official image, pinned by digest like gitleaks.
+OASDIFF_IMAGE := tufin/oasdiff:v1.32.1@sha256:3b14fe0112e5d1bf862f91ab234a4bcd161a3f399e98f8b0b665ce70857694ac
+API_BASE ?= origin/main
+
+api-breaking: ## Fail on breaking changes to openapi.json vs API_BASE (default origin/main)
+	@mkdir -p reports
+	@git show "$(API_BASE):openapi.json" > reports/openapi-base.json
+	docker run --rm -v "$(CURDIR):/work:ro" -w /work $(OASDIFF_IMAGE) \
+		breaking reports/openapi-base.json openapi.json \
+		$(if $(ALLOW_BREAKING),,--fail-on ERR)
 
 types: ## Generate frontend/src/api/schema.ts from openapi.json (run after 'make openapi')
 	cd $(WEB)/codegen && npx --no-install openapi-typescript ../../openapi.json -o ../src/api/schema.ts
