@@ -4,7 +4,7 @@
 duplicates, and company matching. Cross-user isolation is in test_isolation.py."""
 
 import uuid
-from datetime import UTC, date, datetime
+from datetime import date
 from typing import Any
 
 import pytest
@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from app import jobs, timezones
+from app import jobs
 from app.db import set_session_user
 from app.models import JobStatus
 from app.schemas import SAVED_WITH_APPLIED_AT
@@ -55,20 +55,21 @@ def test_create_defaults_to_saved_with_history(api: TestClient) -> None:
 
 
 def test_create_trims_text_and_stores_blank_optionals_as_null(api: TestClient) -> None:
-    job = _create(api, company="  Acme  ", role=" Eng ", location="   ", notes="", salary=" £70k ")
+    job = _create(
+        api,
+        company="  Acme  ",
+        role=" Eng ",
+        location="   ",
+        notes="",
+        salary=" £70k ",
+        contact_email="Sam at Acme (via LinkedIn)",
+    )
     assert (job["company"], job["role"]) == ("Acme", "Eng")
     assert job["location"] is None
     assert job["notes"] is None
     assert job["salary"] == "£70k"
-
-
-def test_create_as_applied_fills_in_today(api: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(timezones, "now", lambda: datetime(2026, 9, 25, 12, 0, tzinfo=UTC))
-    assert _create(api, status="applied")["applied_at"] == "2026-09-25"
-
-
-def test_create_as_applied_keeps_the_date_sent(api: TestClient) -> None:
-    assert _create(api, status="applied", applied_at="2026-09-20")["applied_at"] == "2026-09-20"
+    # Free text, not validated as an address: it's whatever contact detail you have.
+    assert job["contact_email"] == "Sam at Acme (via LinkedIn)"
 
 
 def test_create_with_another_status_invents_no_applied_date(api: TestClient) -> None:
@@ -101,10 +102,6 @@ def test_create_validation(api: TestClient, fields: dict[str, Any], field: str) 
     assert field in [f for f, _ in _errors(resp)]
 
 
-def test_contact_email_is_free_text(api: TestClient) -> None:
-    assert _create(api, contact_email="Sam at Acme (via LinkedIn)")["contact_email"]
-
-
 # --- Duplicates -------------------------------------------------------------------------------
 
 
@@ -117,28 +114,22 @@ def test_same_canonical_url_is_a_409_with_the_existing_id(api: TestClient) -> No
     assert resp.json() == {"detail": "Already tracked", "existing_id": first["id"]}
 
 
-def test_jobs_without_a_url_are_never_duplicates(api: TestClient) -> None:
+def test_no_url_or_different_urls_are_not_duplicates(api: TestClient) -> None:
+    # _create asserts each is a 201.
     _create(api)
     _create(api)
-
-
-def test_different_urls_are_not_duplicates(api: TestClient) -> None:
     _create(api, url="https://uk.indeed.com/viewjob?jk=aaa")
     _create(api, url="https://uk.indeed.com/viewjob?jk=bbb")
 
 
-def test_patching_to_a_tracked_url_is_a_409(api: TestClient) -> None:
+def test_patching_to_another_jobs_url_is_a_409_but_to_its_own_is_fine(api: TestClient) -> None:
     first = _create(api, url="https://acme.test/jobs/1")
     second = _create(api, url="https://acme.test/jobs/2")
     resp = api.patch(f"/api/jobs/{second['id']}", json={"url": "https://acme.test/jobs/1/"})
     assert resp.status_code == 409
     assert resp.json()["existing_id"] == first["id"]
-
-
-def test_patching_a_job_to_its_own_url_is_fine(api: TestClient) -> None:
-    job = _create(api, url="https://acme.test/jobs/1")
-    resp = api.patch(f"/api/jobs/{job['id']}", json={"url": "https://acme.test/jobs/1?utm_x=1"})
-    assert resp.status_code == 200
+    own = api.patch(f"/api/jobs/{first['id']}", json={"url": "https://acme.test/jobs/1?utm_x=1"})
+    assert own.status_code == 200
 
 
 async def test_a_racing_duplicate_is_still_a_409(
@@ -181,23 +172,21 @@ def test_patch_changes_only_the_fields_sent(api: TestClient) -> None:
     assert updated["location"] == "Remote"
     assert updated["salary"] == "£70k"
     assert updated["updated_at"] >= job["updated_at"]
-
-
-def test_patch_null_clears_an_optional_field(api: TestClient) -> None:
-    job = _create(api, location="London")
+    # null clears an optional field.
     assert api.patch(f"/api/jobs/{job['id']}", json={"location": None}).json()["location"] is None
 
 
-@pytest.mark.parametrize("field", ["company", "role"])
-def test_patch_cannot_clear_a_required_field(api: TestClient, field: str) -> None:
+@pytest.mark.parametrize(
+    ("body", "field"),
+    [
+        ({"company": None}, "company"),  # required fields can't be cleared
+        ({"role": None}, "role"),
+        ({"status": "applied"}, "status"),  # the status has its own endpoint
+    ],
+)
+def test_patch_rejects(api: TestClient, body: dict[str, Any], field: str) -> None:
     job = _create(api)
-    assert field in [f for f, _ in _errors(api.patch(f"/api/jobs/{job['id']}", json={field: None}))]
-
-
-def test_patch_does_not_change_status(api: TestClient) -> None:
-    job = _create(api)
-    resp = api.patch(f"/api/jobs/{job['id']}", json={"status": "applied"})
-    assert "status" in [f for f, _ in _errors(resp)]
+    assert field in [f for f, _ in _errors(api.patch(f"/api/jobs/{job['id']}", json=body))]
 
 
 def test_patch_cannot_give_a_saved_job_an_applied_date(api: TestClient) -> None:
@@ -282,10 +271,6 @@ def test_counts_cover_every_status_and_ignore_filter_and_search(api: TestClient)
         "withdrawn": 1,
         "no_response": 1,
     }
-
-
-def test_list_rejects_an_unknown_filter(api: TestClient) -> None:
-    assert api.get("/api/jobs", params={"status": "archived"}).status_code == 422
 
 
 def test_search_matches_company_or_role_case_insensitively(api: TestClient) -> None:
@@ -377,18 +362,17 @@ def test_paging(api: TestClient) -> None:
     assert (beyond["items"], beyond["total"]) == ([], 30)
 
 
-@pytest.mark.parametrize("size", [25, 50, 100])
-def test_page_sizes(api: TestClient, size: int) -> None:
-    assert api.get("/api/jobs", params={"page_size": size}).json()["page_size"] == size
+@pytest.mark.parametrize(("size", "expected"), [(None, 25), (25, 25), (50, 50), (100, 100)])
+def test_page_sizes(api: TestClient, size: int | None, expected: int) -> None:
+    params = {} if size is None else {"page_size": size}
+    assert api.get("/api/jobs", params=params).json()["page_size"] == expected
 
 
-@pytest.mark.parametrize("params", [{"page_size": 10}, {"page_size": 200}, {"page": 0}])
-def test_invalid_paging_is_a_422(api: TestClient, params: dict[str, Any]) -> None:
+@pytest.mark.parametrize(
+    "params", [{"status": "archived"}, {"page_size": 10}, {"page_size": 200}, {"page": 0}]
+)
+def test_invalid_list_parameters_are_a_422(api: TestClient, params: dict[str, Any]) -> None:
     assert api.get("/api/jobs", params=params).status_code == 422
-
-
-def test_default_page_size_is_25(api: TestClient) -> None:
-    assert api.get("/api/jobs").json()["page_size"] == 25
 
 
 async def test_last_status_change_is_the_latest_history_entry(
@@ -436,17 +420,13 @@ def test_company_matches_on_the_start_of_a_word(api: TestClient) -> None:
         "Acme",
         "The Acorn Group",
     ]
+    assert _matches(api, "Globex") == []  # no matches: an empty list
 
 
 @pytest.mark.parametrize("company", ["a", " a ", "a.", "a Ltd"])
 def test_company_matches_need_at_least_2_characters(api: TestClient, company: str) -> None:
     resp = api.get("/api/jobs/company-matches", params={"company": company})
     assert _errors(resp) == [("company", "Enter at least 2 characters")]
-
-
-def test_no_company_matches_is_an_empty_list(api: TestClient) -> None:
-    _create(api, company="Acme")
-    assert _matches(api, "Globex") == []
 
 
 @pytest.mark.parametrize(

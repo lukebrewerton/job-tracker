@@ -36,7 +36,9 @@ def test_readyz_503_without_detail_when_database_unreachable(client: TestClient)
 
 def test_healthz_never_touches_database(client: TestClient) -> None:
     # The app's DATABASE_URL is unreachable, yet liveness is fine.
-    assert client.get("/healthz").status_code == 200
+    resp = client.get("/healthz")
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
 
 
 # --- Transaction-local user scope (the foundation for row-level security) -------------
