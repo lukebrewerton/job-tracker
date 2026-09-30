@@ -1,7 +1,10 @@
+# Copyright (C) 2026 Luke Brewerton
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 .PHONY: help sync sync-api sync-web lock dev dev-web build-web up down db-reset image image-run \
 	lint lint-api lint-web format format-api format-web test test-api test-web \
 	secrets-scan hooks hooks-off migrate migration restore seed openapi openapi-check types types-check \
-	version-check api-breaking
+	version-check api-breaking reuse-lint
 
 WEB := frontend
 
@@ -95,7 +98,7 @@ hooks-off: ## Opt out: disable the repo's git hooks for this clone
 
 # --- Quality -----------------------------------------------------------------
 
-lint: lint-api lint-web ## Lint, format-check and type-check everything
+lint: lint-api lint-web reuse-lint ## Lint, format-check and type-check everything, and check licences
 
 lint-api: openapi-check version-check ## ruff check + ruff format --check + mypy, openapi.json current, versions agree
 	uv run ruff check .
@@ -121,6 +124,13 @@ openapi: ## Write openapi.json from the backend code (run after changing the API
 openapi-check: ## Fail if openapi.json doesn't match the backend code
 	@uv run python -m app.openapi_export | diff -q openapi.json - > /dev/null \
 		|| { echo "openapi.json is out of date: run 'make openapi' and commit it."; exit 1; }
+
+# REUSE (https://reuse.software) via the FSFE's official image, pinned by digest.
+REUSE_IMAGE := fsfe/reuse:6.2.0@sha256:85462a75c0f8efda09ddd190b92816b70e7662577c8427429e11e1b9f25a992e
+
+reuse-lint: ## Fail unless every file has copyright and licence information (a header, or REUSE.toml)
+	docker run --rm -v "$(CURDIR):/data:ro" $(REUSE_IMAGE) lint --quiet \
+		|| { echo "Give the file a licence header, or add it to REUSE.toml."; exit 1; }
 
 version-check: ## Fail unless the three version numbers agree, and MAJOR = the newest API version
 	@uv run python -m app.version_check

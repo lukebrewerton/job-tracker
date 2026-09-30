@@ -15,3 +15,37 @@ path = [
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Luke Brewerton"
 SPDX-License-Identifier = "CC-BY-NC-ND-4.0"
+
+# Everything else that can't carry a comment: JSON and lockfiles, generated files, dotfiles
+# and the docs. Listed by name, not by glob, so a new file without licence information
+# still fails `make reuse-lint`: give it a header, or add it here.
+[[annotations]]
+path = [
+  # Python and Node project and lock files
+  "uv.lock",
+  "frontend/package.json",
+  "frontend/package-lock.json",
+  "frontend/codegen/package.json",
+  "frontend/codegen/package-lock.json",
+  # Tool configuration
+  "frontend/.oxlintrc.json",
+  "frontend/.prettierrc.json",
+  "frontend/tsconfig.json",
+  "frontend/tsconfig.app.json",
+  "frontend/tsconfig.node.json",
+  ".nvmrc",
+  ".python-version",
+  ".env.example",
+  # Generated from the code: `make openapi`, then `make types`
+  "openapi.json",
+  "frontend/src/api/schema.ts",
+  # The web app manifest (frontend/public)
+  "frontend/public/manifest.webmanifest",
+  # Documentation
+  "README.md",
+  "CLAUDE.md",
+  "CONTRIBUTING.md",
+  "SECURITY.md",
+]
+SPDX-FileCopyrightText = "2026 Luke Brewerton"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
