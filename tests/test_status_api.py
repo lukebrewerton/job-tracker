@@ -53,22 +53,20 @@ def today(monkeypatch: pytest.MonkeyPatch) -> date:
 # --- Single status changes --------------------------------------------------------------------
 
 
-def test_creating_a_job_writes_its_initial_history(api: TestClient) -> None:
-    assert _history(api, _create(api, status="interviewing")) == ["interviewing"]
-
-
-def test_each_change_writes_a_history_row(api: TestClient) -> None:
-    job = _create(api)
-    for status in ("applied", "interviewing", "rejected"):
-        assert _status(api, job, status)["status"] == status
-    assert _history(api, job) == ["rejected", "interviewing", "applied", "saved"]
-
-
-def test_history_entries_carry_a_timestamp(api: TestClient) -> None:
-    job = _create(api)
+def test_creation_and_each_change_write_a_timestamped_history_row(api: TestClient) -> None:
+    # Created as interviewing, not the default: the first row records the status given.
+    job = _create(api, status="interviewing")
     [entry] = api.get(f"/api/jobs/{job['id']}/history").json()
-    assert entry["status"] == "saved"
+    assert entry["status"] == "interviewing"
     assert datetime.fromisoformat(entry["changed_at"]).tzinfo is not None
+    before = job
+    for status in ("applied", "offer", "rejected"):
+        moved = _status(api, job, status)
+        assert moved["status"] == status
+        # A status change is movement.
+        assert moved["last_status_change_at"] > before["last_status_change_at"]
+        before = moved
+    assert _history(api, job) == ["rejected", "offer", "applied", "interviewing"]
 
 
 def test_setting_the_same_status_writes_nothing(api: TestClient) -> None:
@@ -87,23 +85,17 @@ def test_any_status_can_move_to_any_other(
     assert _status(api, job, end.value)["status"] == end.value
 
 
-def test_a_status_change_is_movement(api: TestClient) -> None:
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"status": "ghosted"},
+        # Only the status: the applied date follows from it.
+        {"status": "applied", "applied_at": "2026-09-01"},
+    ],
+)
+def test_invalid_status_change_is_a_422(api: TestClient, body: dict[str, Any]) -> None:
     job = _create(api)
-    moved = _status(api, job, "applied")
-    assert moved["last_status_change_at"] > job["last_status_change_at"]
-
-
-def test_unknown_status_is_a_422(api: TestClient) -> None:
-    job = _create(api)
-    assert api.post(f"/api/jobs/{job['id']}/status", json={"status": "ghosted"}).status_code == 422
-
-
-def test_status_change_rejects_other_fields(api: TestClient) -> None:
-    job = _create(api)
-    resp = api.post(
-        f"/api/jobs/{job['id']}/status", json={"status": "applied", "applied_at": "2026-09-01"}
-    )
-    assert resp.status_code == 422
+    assert api.post(f"/api/jobs/{job['id']}/status", json=body).status_code == 422
 
 
 def test_unknown_job_is_a_404(api: TestClient) -> None:
@@ -115,11 +107,6 @@ def test_unknown_job_is_a_404(api: TestClient) -> None:
 # --- applied_at -------------------------------------------------------------------------------
 
 
-def test_becoming_applied_fills_in_today(api: TestClient, today: date) -> None:
-    job = _create(api)
-    assert _status(api, job, "applied")["applied_at"] == today.isoformat()
-
-
 def test_today_is_the_users_own_date(api: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     api.put("/api/me/timezone", json={"timezone": "Europe/London"})
     # 00:30 BST on 26 September: still the 25th in UTC.
@@ -127,22 +114,18 @@ def test_today_is_the_users_own_date(api: TestClient, monkeypatch: pytest.Monkey
     assert _status(api, _create(api), "applied")["applied_at"] == "2026-09-26"
 
 
-def test_an_existing_applied_date_is_never_overwritten(api: TestClient, today: date) -> None:
+def test_status_changes_follow_the_applied_date_rules(api: TestClient, today: date) -> None:
+    # The rule itself is tabled in test_applied_at_for; this proves the endpoint uses it.
+    job = _create(api)
+    for status in ("interviewing", "offer", "rejected", "withdrawn"):
+        assert _status(api, job, status)["applied_at"] is None  # no date invented
+    assert _status(api, job, "applied")["applied_at"] == today.isoformat()  # filled in
+
     job = _create(api, status="applied", applied_at="2026-09-01")
     for status in ("interviewing", "applied", "rejected", "applied"):
-        assert _status(api, job, status)["applied_at"] == "2026-09-01"
-
-
-def test_going_back_to_saved_clears_the_applied_date(api: TestClient, today: date) -> None:
-    job = _create(api, status="applied", applied_at="2026-09-01")
-    assert _status(api, job, "saved")["applied_at"] is None
-    # Applying again later records the new date.
-    assert _status(api, job, "applied")["applied_at"] == today.isoformat()
-
-
-@pytest.mark.parametrize("status", ["interviewing", "offer", "rejected", "withdrawn"])
-def test_other_statuses_invent_no_applied_date(api: TestClient, status: str) -> None:
-    assert _status(api, _create(api), status)["applied_at"] is None
+        assert _status(api, job, status)["applied_at"] == "2026-09-01"  # never overwritten
+    assert _status(api, job, "saved")["applied_at"] is None  # back to saved clears it
+    assert _status(api, job, "applied")["applied_at"] == today.isoformat()  # applying again
 
 
 def test_applied_at_for() -> None:
@@ -175,24 +158,21 @@ def test_bulk_updates_each_job_with_one_history_row_each(api: TestClient) -> Non
         assert api.get(f"/api/jobs/{job['id']}").json()["status"] == "no_response"
 
 
-def test_bulk_reports_unchanged_and_not_found(api: TestClient) -> None:
+def test_bulk_reports_unchanged_and_not_found_and_counts_duplicates_once(
+    api: TestClient,
+) -> None:
     applied = _create(api, company="A", status="applied")
     already = _create(api, company="B", status="no_response")
     missing = uuid.uuid4()
-    result = _bulk(api, [applied["id"], already["id"], missing], "no_response")
+    ids = [applied["id"], applied["id"], already["id"], missing]
+    result = _bulk(api, ids, "no_response")
     assert result == {
         "updated": [applied["id"]],
         "unchanged": [already["id"]],
         "not_found": [str(missing)],
     }
+    assert _history(api, applied) == ["no_response", "applied"]  # one row, not two
     assert _history(api, already) == ["no_response"]
-
-
-def test_bulk_counts_duplicate_ids_once(api: TestClient) -> None:
-    job = _create(api, status="applied")
-    result = _bulk(api, [job["id"], job["id"]], "no_response")
-    assert result["updated"] == [job["id"]]
-    assert _history(api, job) == ["no_response", "applied"]
 
 
 def test_bulk_applies_the_applied_at_rules(api: TestClient, today: date) -> None:

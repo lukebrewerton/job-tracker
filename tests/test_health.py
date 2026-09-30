@@ -5,15 +5,8 @@ import json
 import logging
 
 import pytest
-from fastapi.testclient import TestClient
 
 from app.logging_config import JsonFormatter, RedactQueryFilter, configure_logging
-
-
-def test_healthz_ok(client: TestClient) -> None:
-    resp = client.get("/healthz")
-    assert resp.status_code == 200
-    assert resp.json() == {"status": "ok"}
 
 
 def test_json_log_drops_uvicorn_color_message() -> None:

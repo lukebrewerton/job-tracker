@@ -86,39 +86,30 @@ def test_canonicalising_twice_changes_nothing(url: str, expected: str) -> None:
         ("https://acme.test/jobs?b=2&&a=1", "https://acme.test/jobs?a=1&b=2"),
         ("https://[2001:DB8::1]:443/jobs", "https://[2001:db8::1]/jobs"),
         ("https://User:Pass@ACME.test/jobs", "https://User:Pass@acme.test/jobs"),
+        # http stays http (and https stays https): different schemes aren't duplicates.
+        ("http://acme.test/jobs", "http://acme.test/jobs"),
+        # Path case and www are the site's to decide: kept.
+        ("https://www.acme.test/Jobs/42", "https://www.acme.test/Jobs/42"),
+        # Tracking names match case-insensitively…
+        ("https://acme.test/jobs?UTM_Source=x", "https://acme.test/jobs"),
+        ("https://acme.test/jobs?utm_whatever=x", "https://acme.test/jobs"),
+        ("https://acme.test/jobs?GCLID=x", "https://acme.test/jobs"),
+        ("https://acme.test/jobs?trkinfo=x", "https://acme.test/jobs"),
+        ("https://acme.test/jobs?TRKINFO=x", "https://acme.test/jobs"),
+        ("https://acme.test/jobs?refid=x", "https://acme.test/jobs"),
+        # …and percent-encoded.
+        ("https://acme.test/jobs?utm%5Fsource=x", "https://acme.test/jobs"),
+        # Kept values keep their original encoding.
+        (
+            "https://acme.test/jobs?q=a%20b&r=c+d&blank&empty=",
+            "https://acme.test/jobs?blank&empty=&q=a%20b&r=c+d",
+        ),
+        # Repeated names keep their relative order.
+        ("https://acme.test/jobs?tag=b&x=1&tag=a", "https://acme.test/jobs?tag=b&tag=a&x=1"),
     ],
 )
 def test_normalisation(url: str, expected: str) -> None:
     assert canonicalise_url(url) == expected
-
-
-def test_http_and_https_stay_distinct() -> None:
-    assert canonicalise_url("http://acme.test/jobs") != canonicalise_url("https://acme.test/jobs")
-
-
-def test_path_case_and_www_are_kept() -> None:
-    assert canonicalise_url("https://www.acme.test/Jobs/42") == "https://www.acme.test/Jobs/42"
-
-
-@pytest.mark.parametrize(
-    "param", ["UTM_Source=x", "utm_whatever=x", "GCLID=x", "trkinfo=x", "TRKINFO=x", "refid=x"]
-)
-def test_tracking_names_match_case_insensitively(param: str) -> None:
-    assert canonicalise_url(f"https://acme.test/jobs?{param}") == "https://acme.test/jobs"
-
-
-def test_encoded_tracking_name_is_stripped() -> None:
-    assert canonicalise_url("https://acme.test/jobs?utm%5Fsource=x") == "https://acme.test/jobs"
-
-
-def test_kept_values_keep_their_original_encoding() -> None:
-    url = "https://acme.test/jobs?q=a%20b&r=c+d&blank&empty="
-    assert canonicalise_url(url) == "https://acme.test/jobs?blank&empty=&q=a%20b&r=c+d"
-
-
-def test_repeated_names_keep_their_relative_order() -> None:
-    url = "https://acme.test/jobs?tag=b&x=1&tag=a"
-    assert canonicalise_url(url) == "https://acme.test/jobs?tag=b&tag=a&x=1"
 
 
 # --- The list itself ------------------------------------------------------------------------
