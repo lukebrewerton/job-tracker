@@ -61,7 +61,10 @@ export interface paths {
         };
         /**
          * List Jobs
-         * @description Jobs matching the filter (a status, `active` or `all`) and search, one page at a time.
+         * @description Jobs matching the filter and search, one page at a time.
+         *
+         *     The filter is a status, or a group: `active` (saved, applied, interviewing, offer),
+         *     `closed` (rejected, withdrawn, no response) or `all`.
          *
          *     `q` searches company and role (case-insensitive, at least 2 characters). `counts`
          *     gives every status's total across all your jobs, ignoring the filter and search.
@@ -715,7 +718,7 @@ export interface operations {
     list_jobs_api_jobs_get: {
         parameters: {
             query?: {
-                status?: ("active" | "all") | components["schemas"]["JobStatus"];
+                status?: ("active" | "closed" | "all") | components["schemas"]["JobStatus"];
                 q?: string | null;
                 sort?: "company" | "role" | "status" | "last_status_change" | "applied_at" | "created_at";
                 order?: "asc" | "desc";

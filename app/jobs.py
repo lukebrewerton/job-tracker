@@ -25,7 +25,9 @@ from app.urls import canonicalise_url
 ACTIVE_STATUSES = frozenset(
     {JobStatus.SAVED, JobStatus.APPLIED, JobStatus.INTERVIEWING, JobStatus.OFFER}
 )
-StatusFilter = Literal["active", "all"] | JobStatus
+# Ended without an offer being taken. Accepted isn't here: it's a success, not closed off.
+CLOSED_STATUSES = frozenset({JobStatus.REJECTED, JobStatus.WITHDRAWN, JobStatus.NO_RESPONSE})
+StatusFilter = Literal["active", "closed", "all"] | JobStatus
 SortField = Literal["company", "role", "status", "last_status_change", "applied_at", "created_at"]
 SortOrder = Literal["asc", "desc"]
 
@@ -95,6 +97,8 @@ async def list_jobs(
     query, last_at = _select_rows(user_id)
     if status == "active":
         query = query.where(Job.status.in_(ACTIVE_STATUSES))
+    elif status == "closed":
+        query = query.where(Job.status.in_(CLOSED_STATUSES))
     elif status != "all":
         query = query.where(Job.status == status)
     if search:

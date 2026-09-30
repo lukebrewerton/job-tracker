@@ -37,6 +37,13 @@ export const ACTIVE_STATUSES: readonly JobStatus[] = [
   "offer",
 ];
 
+/** Ended without an offer being taken (accepted is a success, so it isn't here). */
+export const CLOSED_STATUSES: readonly JobStatus[] = [
+  "rejected",
+  "withdrawn",
+  "no_response",
+];
+
 export const ATTENTION_LABELS: Record<Attention, string> = {
   needs_follow_up: "Follow up",
   still_to_apply: "Still to apply",

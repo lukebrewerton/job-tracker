@@ -379,6 +379,28 @@ for _case in (
 ):
     register(_case)
 
+
+async def _alices_closed_job(conn: AsyncConnection, alice: uuid.UUID) -> dict[str, Any]:
+    """A's job, since rejected: so the `closed` filter group has something of A's to leak."""
+    params = await _alices_job(conn, alice)
+    await conn.execute(
+        text("UPDATE jobs SET status = 'rejected' WHERE id = :j"), {"j": params["job_id"]}
+    )
+    return params
+
+
+register_extra(
+    IsolationCase(
+        "GET",
+        "/api/jobs",
+        _alices_closed_job,
+        EMPTY,
+        query={"status": "closed"},
+        is_empty=_no_jobs_listed,
+        variant="the closed filter group",
+    )
+)
+
 # A's interview put under one of B's own jobs is still not B's.
 for _method, _body in _INTERVIEW_BODIES.items():
     register_extra(

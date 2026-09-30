@@ -119,7 +119,10 @@ async def list_jobs(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, AfterValidator(_page_size), Query()] = PAGE_SIZES[0],
 ) -> JobPage:
-    """Jobs matching the filter (a status, `active` or `all`) and search, one page at a time.
+    """Jobs matching the filter and search, one page at a time.
+
+    The filter is a status, or a group: `active` (saved, applied, interviewing, offer),
+    `closed` (rejected, withdrawn, no response) or `all`.
 
     `q` searches company and role (case-insensitive, at least 2 characters). `counts`
     gives every status's total across all your jobs, ignoring the filter and search.

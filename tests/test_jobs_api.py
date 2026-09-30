@@ -255,10 +255,17 @@ def test_list_defaults_to_active(api: TestClient) -> None:
 
 
 @pytest.mark.usefixtures("mixed")
-def test_list_all_and_single_status(api: TestClient) -> None:
+def test_list_groups_and_single_status(api: TestClient) -> None:
     assert api.get("/api/jobs", params={"status": "all"}).json()["total"] == 8
     rejected = api.get("/api/jobs", params={"status": "rejected"}).json()
     assert _companies(rejected) == ["Rejected"]
+    # Closed: ended without an offer taken. Accepted is a success, so it's not included.
+    closed = api.get("/api/jobs", params={"status": "closed", "sort": "company", "order": "asc"})
+    assert _companies(closed.json()) == ["NoResponse", "Rejected", "Withdrawn"]
+    assert closed.json()["total"] == 3
+    # Search and sort still apply within the group.
+    searched = api.get("/api/jobs", params={"status": "closed", "q": "re"}).json()
+    assert sorted(_companies(searched)) == ["NoResponse", "Rejected"]
 
 
 @pytest.mark.usefixtures("mixed")
@@ -278,7 +285,7 @@ def test_counts_cover_every_status_and_ignore_filter_and_search(api: TestClient)
 
 
 def test_list_rejects_an_unknown_filter(api: TestClient) -> None:
-    assert api.get("/api/jobs", params={"status": "closed"}).status_code == 422
+    assert api.get("/api/jobs", params={"status": "archived"}).status_code == 422
 
 
 def test_search_matches_company_or_role_case_insensitively(api: TestClient) -> None:

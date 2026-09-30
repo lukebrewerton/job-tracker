@@ -37,7 +37,12 @@ export const DEFAULT_VIEW: JobsView = {
 
 export const STORAGE_KEY = "job-tracker.jobs-view";
 
-const STATUS_FILTERS: readonly StatusFilter[] = ["active", "all", ...STATUSES];
+const STATUS_FILTERS: readonly StatusFilter[] = [
+  "active",
+  "closed",
+  "all",
+  ...STATUSES,
+];
 const SORT_FIELDS: readonly SortField[] = [
   "company",
   "role",

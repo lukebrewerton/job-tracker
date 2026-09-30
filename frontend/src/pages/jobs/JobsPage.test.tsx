@@ -141,6 +141,16 @@ describe("the jobs page", () => {
     const active = within(filters).getByRole("button", { name: /^Active/ });
     expect(active).toHaveAttribute("aria-pressed", "true");
     await waitFor(() => expect(active).toHaveTextContent("4")); // saved 1 + applied 2 + interviewing 1 + offer 0
+    // The groups come first: Active, Closed, All.
+    expect(
+      within(filters)
+        .getAllByRole("button")
+        .slice(0, 3)
+        .map((b) => b.textContent?.replace(/\d+$/, "")),
+    ).toEqual(["Active", "Closed", "All"]);
+    expect(
+      within(filters).getByRole("button", { name: /^Closed/ }),
+    ).toHaveTextContent("4"); // rejected 3 + withdrawn 0 + no response 1; not accepted
     expect(
       within(filters).getByRole("button", { name: /^All/ }),
     ).toHaveTextContent("8");
@@ -150,6 +160,10 @@ describe("the jobs page", () => {
     );
     await waitFor(() => expect(lastQuery(queries).status).toBe("rejected"));
     expect(router.state.location.search).toBe("?status=rejected");
+
+    await user.click(within(filters).getByRole("button", { name: /^Closed/ }));
+    await waitFor(() => expect(lastQuery(queries).status).toBe("closed"));
+    expect(router.state.location.search).toBe("?status=closed");
   });
 
   it("highlights jobs that need attention, with a text label", async () => {
