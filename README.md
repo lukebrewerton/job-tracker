@@ -76,8 +76,10 @@ set it. There's nothing to delete or disable.
 1. **A key pair.** `brew install age`, then `age-keygen -o job-tracker-backup.key`. It
    prints the public key (`age1…`). Keep the key file somewhere safe, such as a password
    manager: without it, the backups can't be decrypted. It never goes to GitHub.
-2. **A read-only database role.** In the Neon SQL Editor (or `psql` as the database owner),
-   with your own password and the name of your app's role:
+2. **A read-only database role.** Connected as your Neon project's owner role (e.g.
+   `neondb_owner`, via `psql` or a database client, using a direct connection), with your
+   own password and the name of your app's role. Not the Neon SQL Editor: it runs as the
+   database's owner, which is your app role, and that can't create roles.
 
    ```sql
    CREATE ROLE jobtracker_backup LOGIN PASSWORD '<a long random password>'
