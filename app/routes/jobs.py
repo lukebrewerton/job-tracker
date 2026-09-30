@@ -1,6 +1,6 @@
 # Copyright (C) 2026 Luke Brewerton
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""/api/jobs: list, create, read, update and delete jobs, and company matching.
+"""/api/v1/jobs: list, create, read, update and delete jobs, and company matching.
 
 Included in `api_router`, so every route here requires a session. Another user's job,
 like a missing one, is a 404: never a 403, which would confirm it exists.

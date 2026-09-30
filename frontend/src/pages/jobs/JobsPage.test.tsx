@@ -60,14 +60,14 @@ function page(items: Job[], overrides: Partial<JobPage> = {}): JobPage {
   };
 }
 
-/** Serve `/api/jobs` from `respond`, recording each request's query. */
+/** Serve `/api/v1/jobs` from `respond`, recording each request's query. */
 function serveJobs(
   respond: (query: URLSearchParams) => JobPage = () => page([job()]),
 ) {
   const queries: URLSearchParams[] = [];
   mockApi({
-    "GET /api/me": () => json(ME),
-    "GET /api/jobs": (request) => {
+    "GET /api/v1/me": () => json(ME),
+    "GET /api/v1/jobs": (request) => {
       const query = new URL(request.url).searchParams;
       queries.push(query);
       return json(respond(query));

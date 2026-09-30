@@ -33,8 +33,8 @@ function interview(
 
 function serve(groups: Partial<InterviewGroups> = {}) {
   return mockApi({
-    "GET /api/me": () => json(ME),
-    "GET /api/interviews": () =>
+    "GET /api/v1/me": () => json(ME),
+    "GET /api/v1/interviews": () =>
       json({ upcoming: [], not_yet_scheduled: [], past: [], ...groups }),
   });
 }

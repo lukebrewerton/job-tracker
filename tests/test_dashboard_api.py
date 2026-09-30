@@ -1,6 +1,6 @@
 # Copyright (C) 2026 Luke Brewerton
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""/api/dashboard: counts, the three lists at every day boundary, and upcoming interviews.
+"""/api/v1/dashboard: counts, the three lists at every day boundary, and upcoming interviews.
 
 The clock is fixed at NOW. Cross-user isolation is in test_isolation.py.
 """
@@ -48,7 +48,7 @@ class Jobs:
         **fields: Any,
     ) -> dict[str, Any]:
         resp = self.api.post(
-            "/api/jobs", json={"company": "Acme", "role": "Engineer", "status": status, **fields}
+            "/api/v1/jobs", json={"company": "Acme", "role": "Engineer", "status": status, **fields}
         )
         assert resp.status_code == 201, resp.text
         job: dict[str, Any] = resp.json()
@@ -76,7 +76,7 @@ def jobs(api: TestClient, db_engine: AsyncEngine, user: tuple[uuid.UUID, str]) -
 
 
 def _dashboard(api: TestClient) -> dict[str, Any]:
-    resp = api.get("/api/dashboard")
+    resp = api.get("/api/v1/dashboard")
     assert resp.status_code == 200, resp.text
     body: dict[str, Any] = resp.json()
     return body
@@ -137,19 +137,19 @@ async def test_days_are_the_users_own_calendar_days(api: TestClient, jobs: Jobs)
     # 23:30 UTC on 18 September is 00:30 on the 19th in London (BST).
     job = await jobs.add("applied", changed=datetime(2026, 9, 18, 23, 30, tzinfo=UTC))
     assert _where(api, job) == ["needs_follow_up"]  # UTC: 18th → 25th is 7 days
-    api.put("/api/me/timezone", json={"timezone": "Europe/London"})
+    api.put("/api/v1/me/timezone", json={"timezone": "Europe/London"})
     assert _where(api, job) == []  # London: 19th → 25th is 6 days
 
 
 async def test_editing_fields_is_not_movement(api: TestClient, jobs: Jobs) -> None:
     job = await jobs.add("applied", days_ago=10)
-    api.patch(f"/api/jobs/{job['id']}", json={"notes": "Chased by email"})
+    api.patch(f"/api/v1/jobs/{job['id']}", json={"notes": "Chased by email"})
     assert _where(api, job) == ["needs_follow_up"]
 
 
 async def test_a_status_change_is_movement(api: TestClient, jobs: Jobs) -> None:
     job = await jobs.add("applied", days_ago=10)
-    api.post(f"/api/jobs/{job['id']}/status", json={"status": "offer"})
+    api.post(f"/api/v1/jobs/{job['id']}/status", json={"status": "offer"})
     assert _where(api, job) == []
 
 
@@ -181,10 +181,10 @@ async def test_counts(api: TestClient, jobs: Jobs) -> None:
 
     def rejected_via(*path: str) -> None:
         job = api.post(
-            "/api/jobs", json={"company": "Acme", "role": "Engineer", "status": "applied"}
+            "/api/v1/jobs", json={"company": "Acme", "role": "Engineer", "status": "applied"}
         ).json()
         for status in (*path, "rejected"):
-            api.post(f"/api/jobs/{job['id']}/status", json={"status": status})
+            api.post(f"/api/v1/jobs/{job['id']}/status", json={"status": status})
 
     rejected_via()  # rejected at application
     rejected_via("offer")  # never `interviewing`: at application, as the rule says
@@ -229,15 +229,15 @@ async def test_upcoming_interviews_show_the_next_five(api: TestClient, jobs: Job
         (6, active),
     ):
         resp = api.post(
-            f"/api/jobs/{job['id']}/interviews",
+            f"/api/v1/jobs/{job['id']}/interviews",
             json={"scheduled_at": (NOW + timedelta(hours=hours)).isoformat()},
         )
         ids.append((hours, resp.json()["id"]))
     api.post(
-        f"/api/jobs/{active['id']}/interviews",
+        f"/api/v1/jobs/{active['id']}/interviews",
         json={"scheduled_at": (NOW - timedelta(hours=1)).isoformat()},
     )  # past
-    api.post(f"/api/jobs/{active['id']}/interviews", json={})  # unscheduled
+    api.post(f"/api/v1/jobs/{active['id']}/interviews", json={})  # unscheduled
 
     board = _dashboard(api)
     soonest_five = [i for _, i in sorted(ids)[:5]]
@@ -322,7 +322,7 @@ async def test_jobs_list_attention_matches_the_dashboard(api: TestClient, jobs: 
 
     board = _dashboard(api)
     in_list = {j["id"]: name for name in LISTS for j in board[name]}
-    listed = api.get("/api/jobs", params={"status": "all", "page_size": 100}).json()["items"]
+    listed = api.get("/api/v1/jobs", params={"status": "all", "page_size": 100}).json()["items"]
     # The dashboard's list names, as `attention` values (one list is named differently).
     as_attention: dict[str | None, str | None] = {
         None: None,
@@ -338,5 +338,5 @@ async def test_jobs_list_attention_matches_the_dashboard(api: TestClient, jobs: 
 
 async def test_jobs_carry_their_days_since_last_change(api: TestClient, jobs: Jobs) -> None:
     job = await jobs.add("applied", days_ago=9)
-    fetched = api.get(f"/api/jobs/{job['id']}").json()
+    fetched = api.get(f"/api/v1/jobs/{job['id']}").json()
     assert (fetched["days_since_last_change"], fetched["attention"]) == (9, "needs_follow_up")

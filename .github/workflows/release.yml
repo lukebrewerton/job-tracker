@@ -1,0 +1,49 @@
+# Copyright (C) 2026 Luke Brewerton
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Release when the version changes: a push to main whose version (pyproject.toml, kept in
+# step with app/__init__.py and frontend/package.json by `make version-check`) has no
+# release yet gets a tag `v<version>` and a GitHub Release, with that commit's
+# openapi.json attached, so a separately released client can generate from a pinned
+# API. Pushes that don't change the version release nothing. Versioning: README → API
+# versions and releases.
+#
+# Security (CLAUDE.md): the only workflow with write access, and only to create the tag
+# and release, via the job's own short-lived GITHUB_TOKEN: no stored secret. It runs
+# only on pushes to main (never on PR code), checks out main without persisting the
+# token, and uses no third-party actions beyond the pinned checkout.
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Release this version, unless it already has one
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          if gh release view "v$version" > /dev/null 2>&1; then
+            echo "v$version is already released: nothing to do."
+            exit 0
+          fi
+          gh release create "v$version" openapi.json \
+            --target "$GITHUB_SHA" --title "v$version" --generate-notes

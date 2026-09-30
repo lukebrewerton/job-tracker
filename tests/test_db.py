@@ -92,7 +92,7 @@ async def probe_table(db_engine: AsyncEngine) -> str:
 
 def _app_with_probe_routes(static_dir: Path, test_db_url: str) -> FastAPI:
     app = create_app(make_settings(static_dir, test_db_url))
-    router = APIRouter(prefix="/api/_probe")
+    router = APIRouter(prefix="/api/v1/_probe")
 
     @router.post("/{key}")
     async def insert(key: str, session: DbSession) -> dict[str, str]:
@@ -111,7 +111,7 @@ def _app_with_probe_routes(static_dir: Path, test_db_url: str) -> FastAPI:
             await session.execute(text("INSERT INTO _tx_probe (k) VALUES (:k)"), {"k": key})
         return {"inserted": key}
 
-    # Register ahead of the SPA catch-all, which otherwise answers /api/* with a 404.
+    # Register ahead of the SPA catch-all, which otherwise answers /api/v1/* with a 404.
     app.router.routes[:0] = router.routes
     return app
 
@@ -127,7 +127,7 @@ async def test_db_session_commits_on_success(
 ) -> None:
     key = f"ok-{uuid.uuid4()}"
     with TestClient(_app_with_probe_routes(static_dir, test_db_url), base_url=PUBLIC_BASE_URL) as c:
-        assert c.post(f"/api/_probe/{key}", json={}).status_code == 200
+        assert c.post(f"/api/v1/_probe/{key}", json={}).status_code == 200
     assert await _rows(db_engine, key) == 1
 
 
@@ -137,7 +137,7 @@ async def test_db_session_rolls_back_on_error(
     key = f"fail-{uuid.uuid4()}"
     app = _app_with_probe_routes(static_dir, test_db_url)
     with TestClient(app, base_url=PUBLIC_BASE_URL, raise_server_exceptions=False) as c:
-        assert c.post(f"/api/_probe/{key}/fail", json={}).status_code == 500
+        assert c.post(f"/api/v1/_probe/{key}/fail", json={}).status_code == 500
     assert await _rows(db_engine, key) == 0
 
 
@@ -149,5 +149,5 @@ async def test_commit_failure_is_a_500_not_a_false_success(
     key = f"twice-{uuid.uuid4()}"
     app = _app_with_probe_routes(static_dir, test_db_url)
     with TestClient(app, base_url=PUBLIC_BASE_URL, raise_server_exceptions=False) as c:
-        assert c.post(f"/api/_probe/{key}/twice", json={}).status_code == 500
+        assert c.post(f"/api/v1/_probe/{key}/twice", json={}).status_code == 500
     assert await _rows(db_engine, key) == 0

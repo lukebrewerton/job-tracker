@@ -33,8 +33,8 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
   commit the updated `uv.lock`. The Docker build uses `uv sync --frozen`.
 - **All schema changes via Alembic.** Enums are `native_enum=False` (text + CHECK), not
   native Postgres enums.
-- **API routes live on `api_router` (`app/api.py`), never on the app**: the router itself
-  requires a session, so no route can forget authentication. **Every `/api` route needs an
+- **API routes live on `api_router` (`app/api.py`, served at `/api/v1`), never on the app**:
+  the router itself requires a session, so no route can forget authentication. **Every `/api` route needs an
   isolation case in `tests/isolation.py`** (what user B gets when aimed at user A's data:
   404 or empty) — CI fails otherwise.
 - **CSRF** (`app/security.py`): writes from a foreign `Origin` get 403; `POST/PUT/PATCH` to
@@ -42,7 +42,7 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
   `*.job-finder.dev` subdomains as the same site.
 - **Pages** need a session (else 302 to `/auth/login?next=…`), except the public front
   page `/` (sign-in button when signed out; where logout lands). Built files stay public.
-  The dashboard is at `/dashboard`. API docs (`/api/docs`) exist only with
+  The dashboard is at `/dashboard`. API docs (`/api/v1/docs`) exist only with
   `ENVIRONMENT=development`.
 - **The API contract is the committed `openapi.json`** (repo root), written from the code
   by `make openapi`. The frontend's types (`frontend/src/api/schema.ts`) are generated
@@ -51,6 +51,15 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
   then `make types`, and commit both (CI fails if either is stale). `frontend/codegen/` is
   a separate package because the generator needs TypeScript 5's compiler API (the app is
   on TS 7).
+- **API versions** (README → API versions and releases): within `/api/v1`, changes are
+  **additive only** (new endpoints, new optional request fields, new response fields). CI
+  runs `oasdiff breaking` on every PR against its base (`make api-breaking`); a deliberate
+  break needs the `breaking-api` label, and once a separately released client exists it
+  goes into a new `/api/v2` instead, served alongside v1 for **3 months**.
+- **One version for the whole app**, semver, in `pyproject.toml`, `app/__init__.py` and
+  `frontend/package.json`, with **MAJOR = the newest API version** (`API_VERSION` in
+  `app/api.py`): `make version-check` (part of `make lint`) enforces it. Bumping the
+  version in a PR (`chore: release X.Y.Z`) releases it on merge (`release.yml`).
 - **Database access:** data routes take **`UserDbSession`** (`app/sessions.py`): the request's
   single transaction, committed before the response is sent, with `app.user_id` set to the
   signed-in user so row-level security only exposes their rows (unauthenticated → 401).
@@ -89,7 +98,9 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
 - **Never use `pull_request_target`**, and never let CI reference secrets.
   **One exception:** `backup.yml` (schedule/manual only, never PR-triggered; secrets in
   the `main`-only `backup` Environment; no checkout, no token permissions). Nothing else
-  may reference secrets.
+  may reference secrets. `release.yml` stores no secret but is the only workflow with
+  write access (`contents: write`, its own `GITHUB_TOKEN`, push to `main` only) — to
+  create a version's tag and release.
 - **Deploys:** CI also runs on push to `main`, and Render (`render.yaml`,
   `autoDeployTrigger: checksPass`) deploys a `main` commit only once every check on it
   passes. No deploy hook or secret exists. Render's health check is `/healthz` — never
@@ -116,6 +127,9 @@ Targets come in pairs per stack (`-api`, `-web`); the bare name runs both.
   types from `openapi.json`
 - `make format` — ruff fix/format and prettier --write
 - `make secrets-scan` — gitleaks over the full git history (pinned Docker image, same as CI)
+- `make version-check` — the three version numbers agree, and MAJOR = the newest API version
+- `make api-breaking` — oasdiff: breaking changes to `openapi.json` vs `origin/main`
+  (`API_BASE=…` to compare elsewhere, `ALLOW_BREAKING=1` to report without failing)
 - `make hooks` / `make hooks-off` — opt in/out of the pre-commit secrets hook (needs
   `brew install gitleaks`)
 - `make test` — pytest and Vitest, each with JUnit + coverage reports in `reports/`

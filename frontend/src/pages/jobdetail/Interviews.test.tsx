@@ -58,11 +58,11 @@ function serve(
   let list = [...initial];
   const sent: { method: string; body: unknown }[] = [];
   const api = mockApi({
-    "GET /api/me": () => json(ME),
-    [`GET /api/jobs/${ID}`]: () => json(job(jobOverrides)),
-    [`GET /api/jobs/${ID}/history`]: () => json([]),
-    [`GET /api/jobs/${ID}/interviews`]: () => json(list),
-    [`POST /api/jobs/${ID}/interviews`]: async (request) => {
+    "GET /api/v1/me": () => json(ME),
+    [`GET /api/v1/jobs/${ID}`]: () => json(job(jobOverrides)),
+    [`GET /api/v1/jobs/${ID}/history`]: () => json([]),
+    [`GET /api/v1/jobs/${ID}/interviews`]: () => json(list),
+    [`POST /api/v1/jobs/${ID}/interviews`]: async (request) => {
       const body: unknown = await request.json();
       sent.push({ method: "POST", body });
       const created: Interview = Object.assign(interview(), body);
@@ -72,7 +72,7 @@ function serve(
     ...Object.fromEntries(
       initial.flatMap((i) => [
         [
-          `PATCH /api/jobs/${ID}/interviews/${i.id}`,
+          `PATCH /api/v1/jobs/${ID}/interviews/${i.id}`,
           async (request: Request) => {
             const body: unknown = await request.json();
             sent.push({ method: "PATCH", body });
@@ -83,7 +83,7 @@ function serve(
           },
         ],
         [
-          `DELETE /api/jobs/${ID}/interviews/${i.id}`,
+          `DELETE /api/v1/jobs/${ID}/interviews/${i.id}`,
           () => {
             sent.push({ method: "DELETE", body: null });
             list = list.filter((x) => x.id !== i.id);
@@ -258,7 +258,7 @@ describe("adding", () => {
       [],
       { status: "applied" },
       {
-        [`POST /api/jobs/${ID}/status`]: async (request) => {
+        [`POST /api/v1/jobs/${ID}/status`]: async (request) => {
           statusSent = await request.json();
           return json(job({ status: "interviewing" }));
         },

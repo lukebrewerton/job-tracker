@@ -10,7 +10,7 @@ aggregates, or a custom check). Whatever B gets, A's rows must be unchanged afte
 
 Adding an API route? Register its case here in the same PR:
 
-    register(IsolationCase("GET", "/api/jobs/{job_id}", arrange=_alices_job, expect=NOT_FOUND))
+    register(IsolationCase("GET", "/api/v1/jobs/{job_id}", arrange=_alices_job, expect=NOT_FOUND))
 """
 
 import hashlib
@@ -38,7 +38,7 @@ CUSTOM: Literal["custom"] = "custom"
 _OWNED_TABLES = ("jobs", "status_history", "interviews")
 
 # Framework-provided documentation routes (development only), not data routes.
-DOC_PATHS = frozenset({"/api/openapi.json", "/api/docs", "/api/docs/oauth2-redirect"})
+DOC_PATHS = frozenset({"/api/v1/openapi.json", "/api/v1/docs", "/api/v1/docs/oauth2-redirect"})
 
 # Creates user A's data, with row-level security scoped to A; returns path params.
 Arrange = Callable[[AsyncConnection, uuid.UUID], Awaitable[dict[str, Any]]]
@@ -49,7 +49,7 @@ Check = Callable[[Any, dict[str, Any]], None]
 @dataclass(frozen=True)
 class IsolationCase:
     method: str
-    path: str  # the route template, e.g. "/api/jobs/{job_id}"
+    path: str  # the route template, e.g. "/api/v1/jobs/{job_id}"
     arrange: Arrange
     expect: Literal["not_found", "empty", "custom"]
     # A dict, or a function of the params (A's from `arrange`, B's from `arrange_bob`).
@@ -92,7 +92,7 @@ def api_routes(app: FastAPI) -> set[tuple[str, str]]:
     routes: set[tuple[str, str]] = set()
     for route in iter_route_contexts(app.routes):
         path, methods = route.path, route.methods
-        if not path or not methods or not path.startswith("/api/") or path in DOC_PATHS:
+        if not path or not methods or not path.startswith("/api/v1/") or path in DOC_PATHS:
             continue
         routes |= {(m, path) for m in methods - {"HEAD", "OPTIONS"}}
     return routes
@@ -103,7 +103,7 @@ def openapi_routes(app: FastAPI) -> set[tuple[str, str]]:
     return {
         (method.upper(), path)
         for path, operations in app.openapi().get("paths", {}).items()
-        if path.startswith("/api/")
+        if path.startswith("/api/v1/")
         for method in operations
     }
 
@@ -184,7 +184,7 @@ async def run_case(client: TestClient, engine: AsyncEngine, case: IsolationCase)
     assert await _snapshot(engine, alice) == before, f"{where}: changed A's data"
 
 
-# --- Cases: /api/jobs (JT-25) -------------------------------------------------------------
+# --- Cases: /api/v1/jobs (JT-25) -------------------------------------------------------------
 
 ALICES_URL = "https://careers.acme.test/jobs/42?utm_source=linkedin"
 
@@ -220,24 +220,24 @@ def _created_as_bobs_own(resp: Any, params: dict[str, Any]) -> None:
 
 for _case in (
     IsolationCase(
-        "GET", "/api/jobs", _alices_job, EMPTY, query={"status": "all"}, is_empty=_no_jobs_listed
+        "GET", "/api/v1/jobs", _alices_job, EMPTY, query={"status": "all"}, is_empty=_no_jobs_listed
     ),
     IsolationCase(
         "GET",
-        "/api/jobs/company-matches",
+        "/api/v1/jobs/company-matches",
         _alices_job,
         EMPTY,
         query={"company": "Acme"},
         is_empty=lambda payload: payload == {"companies": []},
     ),
-    IsolationCase("GET", "/api/jobs/{job_id}", _alices_job, NOT_FOUND),
+    IsolationCase("GET", "/api/v1/jobs/{job_id}", _alices_job, NOT_FOUND),
     IsolationCase(
-        "PATCH", "/api/jobs/{job_id}", _alices_job, NOT_FOUND, body={"notes": "B was here"}
+        "PATCH", "/api/v1/jobs/{job_id}", _alices_job, NOT_FOUND, body={"notes": "B was here"}
     ),
-    IsolationCase("DELETE", "/api/jobs/{job_id}", _alices_job, NOT_FOUND),
+    IsolationCase("DELETE", "/api/v1/jobs/{job_id}", _alices_job, NOT_FOUND),
     IsolationCase(
         "POST",
-        "/api/jobs",
+        "/api/v1/jobs",
         _alices_job,
         CUSTOM,
         body={"company": "Acme Ltd", "role": "Platform Engineer", "url": ALICES_URL},
@@ -247,7 +247,7 @@ for _case in (
     register(_case)
 
 
-# --- Cases: /api/me (JT-48) ---------------------------------------------------------------
+# --- Cases: /api/v1/me (JT-48) ---------------------------------------------------------------
 
 ALICES_TIMEZONE = "Asia/Tokyo"
 
@@ -271,10 +271,10 @@ def _bobs_own_timezone(resp: Any, params: dict[str, Any]) -> None:
 
 
 for _case in (
-    IsolationCase("GET", "/api/me", _alice_in_tokyo, CUSTOM, check=_bobs_own_profile),
+    IsolationCase("GET", "/api/v1/me", _alice_in_tokyo, CUSTOM, check=_bobs_own_profile),
     IsolationCase(
         "PUT",
-        "/api/me/timezone",
+        "/api/v1/me/timezone",
         _alice_in_tokyo,
         CUSTOM,
         body={"timezone": "America/New_York"},
@@ -312,13 +312,13 @@ def _only_bobs_job_changed(resp: Any, params: dict[str, Any]) -> None:
 
 
 for _case in (
-    IsolationCase("GET", "/api/jobs/{job_id}/history", _alices_job, NOT_FOUND),
+    IsolationCase("GET", "/api/v1/jobs/{job_id}/history", _alices_job, NOT_FOUND),
     IsolationCase(
-        "POST", "/api/jobs/{job_id}/status", _alices_job, NOT_FOUND, body={"status": "rejected"}
+        "POST", "/api/v1/jobs/{job_id}/status", _alices_job, NOT_FOUND, body={"status": "rejected"}
     ),
     IsolationCase(
         "POST",
-        "/api/jobs/bulk-status",
+        "/api/v1/jobs/bulk-status",
         _alices_job,
         CUSTOM,
         arrange_bob=_bobs_own_job,
@@ -359,15 +359,15 @@ def _under_bobs_own_job(params: dict[str, Any]) -> dict[str, Any]:
     return {"job_id": params["bobs_job_id"], "interview_id": params["interview_id"]}
 
 
-_ONE_INTERVIEW = "/api/jobs/{job_id}/interviews/{interview_id}"
+_ONE_INTERVIEW = "/api/v1/jobs/{job_id}/interviews/{interview_id}"
 _INTERVIEW_BODIES = {"GET": None, "PATCH": {"notes": "B was here"}, "DELETE": None}
 
 for _case in (
-    IsolationCase("GET", "/api/interviews", _alices_interviews, EMPTY, is_empty=_no_interviews),
-    IsolationCase("GET", "/api/jobs/{job_id}/interviews", _alices_interviews, NOT_FOUND),
+    IsolationCase("GET", "/api/v1/interviews", _alices_interviews, EMPTY, is_empty=_no_interviews),
+    IsolationCase("GET", "/api/v1/jobs/{job_id}/interviews", _alices_interviews, NOT_FOUND),
     IsolationCase(
         "POST",
-        "/api/jobs/{job_id}/interviews",
+        "/api/v1/jobs/{job_id}/interviews",
         _alices_interviews,
         NOT_FOUND,
         body={"mode": "phone"},
@@ -392,7 +392,7 @@ async def _alices_closed_job(conn: AsyncConnection, alice: uuid.UUID) -> dict[st
 register_extra(
     IsolationCase(
         "GET",
-        "/api/jobs",
+        "/api/v1/jobs",
         _alices_closed_job,
         EMPTY,
         query={"status": "closed"},
@@ -462,5 +462,7 @@ def _empty_dashboard(payload: Any) -> bool:
 
 
 register(
-    IsolationCase("GET", "/api/dashboard", _alices_busy_dashboard, EMPTY, is_empty=_empty_dashboard)
+    IsolationCase(
+        "GET", "/api/v1/dashboard", _alices_busy_dashboard, EMPTY, is_empty=_empty_dashboard
+    )
 )

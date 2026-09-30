@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import text
 
 from app import __version__
-from app.api import api_router
+from app.api import API_PREFIX, api_router
 from app.auth import install_auth
 from app.config import Settings, get_settings
 from app.db import create_engine, create_sessionmaker
@@ -56,8 +56,8 @@ def create_app(
         title="Job Tracker",
         version=__version__,
         # API docs in development only; in production both paths are 404s.
-        docs_url="/api/docs" if settings.is_development else None,
-        openapi_url="/api/openapi.json" if settings.is_development else None,
+        docs_url=f"{API_PREFIX}/docs" if settings.is_development else None,
+        openapi_url=f"{API_PREFIX}/openapi.json" if settings.is_development else None,
         redoc_url=None,
     )
 

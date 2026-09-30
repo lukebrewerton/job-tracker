@@ -3,7 +3,7 @@
 """Print the API's OpenAPI schema as JSON: the contract clients generate types from.
 
 Builds the app with placeholder settings and calls `app.openapi()`, the same function
-FastAPI uses to serve /api/openapi.json in development. No server, database or `.env`
+FastAPI uses to serve /api/v1/openapi.json in development. No server, database or `.env`
 is needed, so CI can run it. `make openapi` writes it to openapi.json (committed), and
 `make openapi-check` fails if that file is stale. Clients generate from the file, never
 from this code (see `make types`).

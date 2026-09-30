@@ -22,7 +22,7 @@ function browserZone(timeZone: string) {
 
 function signedIn(extra: Parameters<typeof mockApi>[0] = {}) {
   browserZone("Europe/London");
-  return mockApi({ "GET /api/me": () => json(ME), ...extra });
+  return mockApi({ "GET /api/v1/me": () => json(ME), ...extra });
 }
 
 describe("the header, signed in", () => {
@@ -110,8 +110,8 @@ describe("time zone sync", () => {
   it("saves the browser's zone when it differs from the stored one", async () => {
     browserZone("America/New_York");
     const { requests } = mockApi({
-      "GET /api/me": () => json(ME),
-      "PUT /api/me/timezone": () => json({ timezone: "America/New_York" }),
+      "GET /api/v1/me": () => json(ME),
+      "PUT /api/v1/me/timezone": () => json({ timezone: "America/New_York" }),
     });
     renderApp("/dashboard");
     await waitFor(() =>
@@ -132,8 +132,8 @@ describe("time zone sync", () => {
     browserZone("Mars/Olympus_Mons");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     mockApi({
-      "GET /api/me": () => json(ME),
-      "PUT /api/me/timezone": () =>
+      "GET /api/v1/me": () => json(ME),
+      "PUT /api/v1/me/timezone": () =>
         json({ detail: [{ msg: "Unknown time zone" }] }, 422),
     });
     renderApp("/dashboard");
@@ -145,7 +145,7 @@ describe("time zone sync", () => {
 describe("the front page", () => {
   it("offers Sign in when signed out, and says so after logging out", async () => {
     mockApi({
-      "GET /api/me": () => json({ detail: "Not authenticated" }, 401),
+      "GET /api/v1/me": () => json({ detail: "Not authenticated" }, 401),
     });
     const assign = vi.spyOn(navigation, "assign").mockImplementation(() => {});
     renderApp("/?signed_out=1");

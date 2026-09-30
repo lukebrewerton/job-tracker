@@ -18,8 +18,8 @@ type Handlers = Parameters<typeof mockApi>[0];
 
 function serve(extra: Handlers = {}) {
   return mockApi({
-    "GET /api/me": () => json(ME),
-    "GET /api/jobs/company-matches": () => json({ companies: [] }),
+    "GET /api/v1/me": () => json(ME),
+    "GET /api/v1/jobs/company-matches": () => json({ companies: [] }),
     ...extra,
   });
 }
@@ -79,7 +79,7 @@ describe("pre-filling from the extension", () => {
 describe("the company warning", () => {
   it("lists matching companies as entered, with their statuses and links", async () => {
     serve({
-      "GET /api/jobs/company-matches": (request) => {
+      "GET /api/v1/jobs/company-matches": (request) => {
         expect(new URL(request.url).searchParams.get("company")).toBe("acme");
         return json({
           companies: [
@@ -109,7 +109,7 @@ describe("the company warning", () => {
 
   it("stays silent (no warning, no error toast) while the input is too short to check", async () => {
     serve({
-      "GET /api/jobs/company-matches": () =>
+      "GET /api/v1/jobs/company-matches": () =>
         json(
           {
             detail: [
@@ -135,7 +135,7 @@ describe("saving", () => {
   it("creates the job, then goes to its page", async () => {
     let sent: unknown;
     const { requests } = serve({
-      "POST /api/jobs": async (request) => {
+      "POST /api/v1/jobs": async (request) => {
         sent = await request.json();
         return json(createdJob({ company: "Acme", role: "Engineer" }), 201);
       },
@@ -166,7 +166,7 @@ describe("saving", () => {
   it("disables Save while saving", async () => {
     let finish!: () => void;
     serve({
-      "POST /api/jobs": () =>
+      "POST /api/v1/jobs": () =>
         new Promise((resolve) => {
           finish = () =>
             resolve(json(createdJob({ company: "Acme", role: "Eng" }), 201));
@@ -184,7 +184,7 @@ describe("saving", () => {
 
   it("shows Already tracked, with a link, for a duplicate URL", async () => {
     serve({
-      "POST /api/jobs": () =>
+      "POST /api/v1/jobs": () =>
         json(
           {
             detail: "Already tracked",
@@ -208,7 +208,7 @@ describe("saving", () => {
 
   it("shows the server's validation message under its field", async () => {
     serve({
-      "POST /api/jobs": () =>
+      "POST /api/v1/jobs": () =>
         json(
           {
             detail: [
@@ -263,7 +263,7 @@ describe("the draft", () => {
 
   it("says so when a save was cut short by an expired session, without resubmitting", async () => {
     const { requests } = serve({
-      "POST /api/jobs": () => json({ detail: "Not authenticated" }, 401),
+      "POST /api/v1/jobs": () => json({ detail: "Not authenticated" }, 401),
     });
     const assign = vi.spyOn(navigation, "assign").mockImplementation(() => {});
     const user = userEvent.setup();
@@ -288,7 +288,7 @@ describe("the draft", () => {
 
   it("survives the sign-in round trip re-encoding the link (| comes back as %7C)", async () => {
     serve({
-      "POST /api/jobs": () => json({ detail: "Not authenticated" }, 401),
+      "POST /api/v1/jobs": () => json({ detail: "Not authenticated" }, 401),
     });
     vi.spyOn(navigation, "assign").mockImplementation(() => {});
     const user = userEvent.setup();
@@ -315,7 +315,7 @@ describe("the draft", () => {
   it("marks the save before sending (so a fast unload can't lose it), and clears it after", async () => {
     let finish!: () => void;
     serve({
-      "POST /api/jobs": () =>
+      "POST /api/v1/jobs": () =>
         new Promise((resolve) => {
           finish = () =>
             resolve(

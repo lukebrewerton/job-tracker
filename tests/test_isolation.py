@@ -104,7 +104,7 @@ async def test_other_users_data_is_never_exposed(
 
 def _probe_router(*, leaky: bool = False) -> APIRouter:
     # Same protection as the real api_router: its dependencies (the session check).
-    router = APIRouter(prefix="/api/_probe", dependencies=api_router.dependencies)
+    router = APIRouter(prefix="/api/v1/_probe", dependencies=api_router.dependencies)
 
     @router.get("/jobs/{job_id}")
     async def get_job(job_id: uuid.UUID, db: UserDbSession) -> dict[str, Any]:
@@ -147,8 +147,8 @@ async def _alices_job(conn: AsyncConnection, alice: uuid.UUID) -> dict[str, Any]
 
 def _probe_cases() -> dict[tuple[str, str], IsolationCase]:
     cases: dict[tuple[str, str], IsolationCase] = {}
-    register(IsolationCase("GET", "/api/_probe/jobs/{job_id}", _alices_job, NOT_FOUND), cases)
-    register(IsolationCase("GET", "/api/_probe/jobs", _alices_job, EMPTY), cases)
+    register(IsolationCase("GET", "/api/v1/_probe/jobs/{job_id}", _alices_job, NOT_FOUND), cases)
+    register(IsolationCase("GET", "/api/v1/_probe/jobs", _alices_job, EMPTY), cases)
     return cases
 
 
@@ -161,20 +161,22 @@ def probe_client(static_dir: Path, test_db_url: str) -> Iterator[TestClient]:
 
 def test_route_walk_sees_routes_on_included_routers(static_dir: Path, test_db_url: str) -> None:
     app = _app_with(static_dir, test_db_url, _probe_router())
-    assert {("GET", "/api/_probe/jobs/{job_id}"), ("GET", "/api/_probe/jobs")} <= api_routes(app)
+    assert {("GET", "/api/v1/_probe/jobs/{job_id}"), ("GET", "/api/v1/_probe/jobs")} <= api_routes(
+        app
+    )
     assert api_routes(app) == openapi_routes(app)
 
 
 def test_harness_flags_a_route_without_a_case(static_dir: Path, test_db_url: str) -> None:
     app = _app_with(static_dir, test_db_url, _probe_router())
     cases = _probe_cases()
-    del cases[("GET", "/api/_probe/jobs")]
-    probe_routes = {r for r in api_routes(app) if r[1].startswith("/api/_probe/")}
-    assert probe_routes - cases.keys() == {("GET", "/api/_probe/jobs")}
+    del cases[("GET", "/api/v1/_probe/jobs")]
+    probe_routes = {r for r in api_routes(app) if r[1].startswith("/api/v1/_probe/")}
+    assert probe_routes - cases.keys() == {("GET", "/api/v1/_probe/jobs")}
 
 
 def test_routes_on_the_api_router_require_a_session(probe_client: TestClient) -> None:
-    resp = probe_client.get(f"/api/_probe/jobs/{uuid.uuid4()}")
+    resp = probe_client.get(f"/api/v1/_probe/jobs/{uuid.uuid4()}")
     assert resp.status_code == 401
 
 
@@ -187,7 +189,7 @@ def test_even_a_route_with_no_dependencies_of_its_own_is_protected(
 ) -> None:
     # A careless route that takes no session/db parameter at all must still be gated by
     # the router, not by its own signature.
-    router = APIRouter(prefix="/api/_probe", dependencies=api_router.dependencies)
+    router = APIRouter(prefix="/api/v1/_probe", dependencies=api_router.dependencies)
 
     @router.get("/careless")
     async def careless() -> dict[str, str]:
@@ -195,7 +197,7 @@ def test_even_a_route_with_no_dependencies_of_its_own_is_protected(
 
     app = _app_with(static_dir, test_db_url, router)
     with TestClient(app, base_url=PUBLIC_BASE_URL) as c:
-        assert c.get("/api/_probe/careless").status_code == 401
+        assert c.get("/api/v1/_probe/careless").status_code == 401
 
 
 @pytest.mark.parametrize("key", list(_probe_cases()))
@@ -209,7 +211,7 @@ async def test_harness_catches_a_leaking_route(
     static_dir: Path, test_db_url: str, db_engine: AsyncEngine
 ) -> None:
     app = _app_with(static_dir, test_db_url, _probe_router(leaky=True))
-    case = _probe_cases()[("GET", "/api/_probe/jobs/{job_id}")]
+    case = _probe_cases()[("GET", "/api/v1/_probe/jobs/{job_id}")]
     with (
         TestClient(app, base_url=PUBLIC_BASE_URL) as c,
         pytest.raises(AssertionError, match="expected 404, got 200"),

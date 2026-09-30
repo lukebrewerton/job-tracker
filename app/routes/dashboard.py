@@ -1,6 +1,6 @@
 # Copyright (C) 2026 Luke Brewerton
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""/api/dashboard: everything the dashboard shows, in one call."""
+"""/api/v1/dashboard: everything the dashboard shows, in one call."""
 
 from dataclasses import asdict
 

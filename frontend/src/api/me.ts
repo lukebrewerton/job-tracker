@@ -15,7 +15,7 @@ export function useMe() {
   return useQuery({
     queryKey: meQueryKey,
     queryFn: async (): Promise<Me | null> => {
-      const { data, error, response } = await api.GET("/api/me");
+      const { data, error, response } = await api.GET("/api/v1/me");
       if (response.status === 401) return null;
       if (!response.ok || !data) throw new ApiError(response.status, error);
       return data;
@@ -41,7 +41,7 @@ export function useTimezoneSync(me: Me | null | undefined): void {
   useEffect(() => {
     if (!me || me.timezone === timezone) return;
     void (async () => {
-      const { response } = await api.PUT("/api/me/timezone", {
+      const { response } = await api.PUT("/api/v1/me/timezone", {
         body: { timezone },
       });
       if (response.ok) {

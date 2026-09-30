@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/api/dashboard": {
+    "/api/v1/dashboard": {
         parameters: {
             query?: never;
             header?: never;
@@ -18,7 +18,7 @@ export interface paths {
          *     Days are whole calendar days in your time zone; only status changes count as
          *     movement. The thresholds used are returned too, for the UI's wording.
          */
-        get: operations["get_dashboard_api_dashboard_get"];
+        get: operations["get_dashboard_api_v1_dashboard_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -27,7 +27,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/interviews": {
+    "/api/v1/interviews": {
         parameters: {
             query?: never;
             header?: never;
@@ -43,7 +43,7 @@ export interface paths {
          *     - **not_yet_scheduled**: no date yet, on active jobs only, oldest first;
          *     - **past**: most recent first.
          */
-        get: operations["interview_groups_api_interviews_get"];
+        get: operations["interview_groups_api_v1_interviews_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -52,7 +52,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/jobs": {
+    "/api/v1/jobs": {
         parameters: {
             query?: never;
             header?: never;
@@ -69,20 +69,20 @@ export interface paths {
          *     `q` searches company and role (case-insensitive, at least 2 characters). `counts`
          *     gives every status's total across all your jobs, ignoring the filter and search.
          */
-        get: operations["list_jobs_api_jobs_get"];
+        get: operations["list_jobs_api_v1_jobs_get"];
         put?: never;
         /**
          * Create Job
          * @description Create a job. 409 with the existing job's id if you already track this URL.
          */
-        post: operations["create_job_api_jobs_post"];
+        post: operations["create_job_api_v1_jobs_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/jobs/bulk-status": {
+    "/api/v1/jobs/bulk-status": {
         parameters: {
             query?: never;
             header?: never;
@@ -98,14 +98,14 @@ export interface paths {
          *     Only your own jobs are changed: any other ID is reported in `not_found` and never
          *     touched. Jobs already in the status are reported in `unchanged`.
          */
-        post: operations["bulk_change_status_api_jobs_bulk_status_post"];
+        post: operations["bulk_change_status_api_v1_jobs_bulk_status_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/jobs/company-matches": {
+    "/api/v1/jobs/company-matches": {
         parameters: {
             query?: never;
             header?: never;
@@ -120,7 +120,7 @@ export interface paths {
          *     so "acme" finds "ACME" and "Acme Ltd", and "ac" also finds "Accenture" (but not
          *     "Pacific"). Each name is returned as entered, with its own counts: nothing is merged.
          */
-        get: operations["company_matches_api_jobs_company_matches_get"];
+        get: operations["company_matches_api_v1_jobs_company_matches_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -129,7 +129,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/jobs/{job_id}": {
+    "/api/v1/jobs/{job_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -137,24 +137,24 @@ export interface paths {
             cookie?: never;
         };
         /** Get Job */
-        get: operations["get_job_api_jobs__job_id__get"];
+        get: operations["get_job_api_v1_jobs__job_id__get"];
         put?: never;
         post?: never;
         /**
          * Delete Job
          * @description Delete a job permanently, with its status history and interviews.
          */
-        delete: operations["delete_job_api_jobs__job_id__delete"];
+        delete: operations["delete_job_api_v1_jobs__job_id__delete"];
         options?: never;
         head?: never;
         /**
          * Update Job
          * @description Change only the fields sent; null clears an optional field. Not the status (JT-26).
          */
-        patch: operations["update_job_api_jobs__job_id__patch"];
+        patch: operations["update_job_api_v1_jobs__job_id__patch"];
         trace?: never;
     };
-    "/api/jobs/{job_id}/history": {
+    "/api/v1/jobs/{job_id}/history": {
         parameters: {
             query?: never;
             header?: never;
@@ -165,7 +165,7 @@ export interface paths {
          * Status History
          * @description The job's status changes, newest first.
          */
-        get: operations["status_history_api_jobs__job_id__history_get"];
+        get: operations["status_history_api_v1_jobs__job_id__history_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -174,7 +174,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/jobs/{job_id}/interviews": {
+    "/api/v1/jobs/{job_id}/interviews": {
         parameters: {
             query?: never;
             header?: never;
@@ -185,20 +185,20 @@ export interface paths {
          * List Job Interviews
          * @description A job's interviews: scheduled ones by date, then unscheduled ones.
          */
-        get: operations["list_job_interviews_api_jobs__job_id__interviews_get"];
+        get: operations["list_job_interviews_api_v1_jobs__job_id__interviews_get"];
         put?: never;
         /**
          * Create Interview
          * @description Add an interview. Every field is optional; the job's status doesn't change.
          */
-        post: operations["create_interview_api_jobs__job_id__interviews_post"];
+        post: operations["create_interview_api_v1_jobs__job_id__interviews_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/jobs/{job_id}/interviews/{interview_id}": {
+    "/api/v1/jobs/{job_id}/interviews/{interview_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -206,21 +206,21 @@ export interface paths {
             cookie?: never;
         };
         /** Get Interview */
-        get: operations["get_interview_api_jobs__job_id__interviews__interview_id__get"];
+        get: operations["get_interview_api_v1_jobs__job_id__interviews__interview_id__get"];
         put?: never;
         post?: never;
         /** Delete Interview */
-        delete: operations["delete_interview_api_jobs__job_id__interviews__interview_id__delete"];
+        delete: operations["delete_interview_api_v1_jobs__job_id__interviews__interview_id__delete"];
         options?: never;
         head?: never;
         /**
          * Update Interview
          * @description Change only the fields sent; null clears a field.
          */
-        patch: operations["update_interview_api_jobs__job_id__interviews__interview_id__patch"];
+        patch: operations["update_interview_api_v1_jobs__job_id__interviews__interview_id__patch"];
         trace?: never;
     };
-    "/api/jobs/{job_id}/status": {
+    "/api/v1/jobs/{job_id}/status": {
         parameters: {
             query?: never;
             header?: never;
@@ -237,14 +237,14 @@ export interface paths {
          *     Becoming `applied` fills in today's date (in your time zone) if there's none;
          *     going back to `saved` clears it.
          */
-        post: operations["change_status_api_jobs__job_id__status_post"];
+        post: operations["change_status_api_v1_jobs__job_id__status_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/me": {
+    "/api/v1/me": {
         parameters: {
             query?: never;
             header?: never;
@@ -252,7 +252,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get Me */
-        get: operations["get_me_api_me_get"];
+        get: operations["get_me_api_v1_me_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -261,7 +261,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/me/timezone": {
+    "/api/v1/me/timezone": {
         parameters: {
             query?: never;
             header?: never;
@@ -273,7 +273,7 @@ export interface paths {
          * Set Timezone
          * @description Store your IANA time zone (e.g. Europe/London), used for server-side dates.
          */
-        put: operations["set_timezone_api_me_timezone_put"];
+        put: operations["set_timezone_api_v1_me_timezone_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -675,7 +675,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    get_dashboard_api_dashboard_get: {
+    get_dashboard_api_v1_dashboard_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -695,7 +695,7 @@ export interface operations {
             };
         };
     };
-    interview_groups_api_interviews_get: {
+    interview_groups_api_v1_interviews_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -715,7 +715,7 @@ export interface operations {
             };
         };
     };
-    list_jobs_api_jobs_get: {
+    list_jobs_api_v1_jobs_get: {
         parameters: {
             query?: {
                 status?: ("active" | "closed" | "all") | components["schemas"]["JobStatus"];
@@ -751,7 +751,7 @@ export interface operations {
             };
         };
     };
-    create_job_api_jobs_post: {
+    create_job_api_v1_jobs_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -793,7 +793,7 @@ export interface operations {
             };
         };
     };
-    bulk_change_status_api_jobs_bulk_status_post: {
+    bulk_change_status_api_v1_jobs_bulk_status_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -826,7 +826,7 @@ export interface operations {
             };
         };
     };
-    company_matches_api_jobs_company_matches_get: {
+    company_matches_api_v1_jobs_company_matches_get: {
         parameters: {
             query: {
                 company: string;
@@ -857,7 +857,7 @@ export interface operations {
             };
         };
     };
-    get_job_api_jobs__job_id__get: {
+    get_job_api_v1_jobs__job_id__get: {
         parameters: {
             query?: never;
             header?: never;
@@ -888,7 +888,7 @@ export interface operations {
             };
         };
     };
-    delete_job_api_jobs__job_id__delete: {
+    delete_job_api_v1_jobs__job_id__delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -917,7 +917,7 @@ export interface operations {
             };
         };
     };
-    update_job_api_jobs__job_id__patch: {
+    update_job_api_v1_jobs__job_id__patch: {
         parameters: {
             query?: never;
             header?: never;
@@ -961,7 +961,7 @@ export interface operations {
             };
         };
     };
-    status_history_api_jobs__job_id__history_get: {
+    status_history_api_v1_jobs__job_id__history_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -992,7 +992,7 @@ export interface operations {
             };
         };
     };
-    list_job_interviews_api_jobs__job_id__interviews_get: {
+    list_job_interviews_api_v1_jobs__job_id__interviews_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -1023,7 +1023,7 @@ export interface operations {
             };
         };
     };
-    create_interview_api_jobs__job_id__interviews_post: {
+    create_interview_api_v1_jobs__job_id__interviews_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -1058,7 +1058,7 @@ export interface operations {
             };
         };
     };
-    get_interview_api_jobs__job_id__interviews__interview_id__get: {
+    get_interview_api_v1_jobs__job_id__interviews__interview_id__get: {
         parameters: {
             query?: never;
             header?: never;
@@ -1090,7 +1090,7 @@ export interface operations {
             };
         };
     };
-    delete_interview_api_jobs__job_id__interviews__interview_id__delete: {
+    delete_interview_api_v1_jobs__job_id__interviews__interview_id__delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -1120,7 +1120,7 @@ export interface operations {
             };
         };
     };
-    update_interview_api_jobs__job_id__interviews__interview_id__patch: {
+    update_interview_api_v1_jobs__job_id__interviews__interview_id__patch: {
         parameters: {
             query?: never;
             header?: never;
@@ -1156,7 +1156,7 @@ export interface operations {
             };
         };
     };
-    change_status_api_jobs__job_id__status_post: {
+    change_status_api_v1_jobs__job_id__status_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -1191,7 +1191,7 @@ export interface operations {
             };
         };
     };
-    get_me_api_me_get: {
+    get_me_api_v1_me_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -1211,7 +1211,7 @@ export interface operations {
             };
         };
     };
-    set_timezone_api_me_timezone_put: {
+    set_timezone_api_v1_me_timezone_put: {
         parameters: {
             query?: never;
             header?: never;

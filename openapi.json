@@ -1235,14 +1235,14 @@
   },
   "info": {
     "title": "Job Tracker",
-    "version": "0.1.0"
+    "version": "1.0.0"
   },
   "openapi": "3.1.0",
   "paths": {
-    "/api/dashboard": {
+    "/api/v1/dashboard": {
       "get": {
         "description": "Tile counts, the three \"needs attention\" lists and the next interviews.\n\nDays are whole calendar days in your time zone; only status changes count as\nmovement. The thresholds used are returned too, for the UI's wording.",
-        "operationId": "get_dashboard_api_dashboard_get",
+        "operationId": "get_dashboard_api_v1_dashboard_get",
         "responses": {
           "200": {
             "content": {
@@ -1261,10 +1261,10 @@
         ]
       }
     },
-    "/api/interviews": {
+    "/api/v1/interviews": {
       "get": {
         "description": "All your interviews in three groups.\n\n- **upcoming**: from now on, soonest first (including closed jobs, so a booking you\n  no longer need stays visible);\n- **not_yet_scheduled**: no date yet, on active jobs only, oldest first;\n- **past**: most recent first.",
-        "operationId": "interview_groups_api_interviews_get",
+        "operationId": "interview_groups_api_v1_interviews_get",
         "responses": {
           "200": {
             "content": {
@@ -1283,10 +1283,10 @@
         ]
       }
     },
-    "/api/jobs": {
+    "/api/v1/jobs": {
       "get": {
         "description": "Jobs matching the filter and search, one page at a time.\n\nThe filter is a status, or a group: `active` (saved, applied, interviewing, offer),\n`closed` (rejected, withdrawn, no response) or `all`.\n\n`q` searches company and role (case-insensitive, at least 2 characters). `counts`\ngives every status's total across all your jobs, ignoring the filter and search.",
-        "operationId": "list_jobs_api_jobs_get",
+        "operationId": "list_jobs_api_v1_jobs_get",
         "parameters": [
           {
             "in": "query",
@@ -1409,7 +1409,7 @@
       },
       "post": {
         "description": "Create a job. 409 with the existing job's id if you already track this URL.",
-        "operationId": "create_job_api_jobs_post",
+        "operationId": "create_job_api_v1_jobs_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1458,10 +1458,10 @@
         ]
       }
     },
-    "/api/jobs/bulk-status": {
+    "/api/v1/jobs/bulk-status": {
       "post": {
         "description": "Set many jobs' status at once (e.g. \"Mark all as no response\"), all or nothing.\n\nOnly your own jobs are changed: any other ID is reported in `not_found` and never\ntouched. Jobs already in the status are reported in `unchanged`.",
-        "operationId": "bulk_change_status_api_jobs_bulk_status_post",
+        "operationId": "bulk_change_status_api_v1_jobs_bulk_status_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1500,10 +1500,10 @@
         ]
       }
     },
-    "/api/jobs/company-matches": {
+    "/api/v1/jobs/company-matches": {
       "get": {
         "description": "Your jobs at companies whose name matches, by the start of a word.\n\nCase, punctuation and legal suffixes (Ltd, Limited, Inc\u2026) are ignored when matching,\nso \"acme\" finds \"ACME\" and \"Acme Ltd\", and \"ac\" also finds \"Accenture\" (but not\n\"Pacific\"). Each name is returned as entered, with its own counts: nothing is merged.",
-        "operationId": "company_matches_api_jobs_company_matches_get",
+        "operationId": "company_matches_api_v1_jobs_company_matches_get",
         "parameters": [
           {
             "in": "query",
@@ -1543,10 +1543,10 @@
         ]
       }
     },
-    "/api/jobs/{job_id}": {
+    "/api/v1/jobs/{job_id}": {
       "delete": {
         "description": "Delete a job permanently, with its status history and interviews.",
-        "operationId": "delete_job_api_jobs__job_id__delete",
+        "operationId": "delete_job_api_v1_jobs__job_id__delete",
         "parameters": [
           {
             "in": "path",
@@ -1580,7 +1580,7 @@
         ]
       },
       "get": {
-        "operationId": "get_job_api_jobs__job_id__get",
+        "operationId": "get_job_api_v1_jobs__job_id__get",
         "parameters": [
           {
             "in": "path",
@@ -1622,7 +1622,7 @@
       },
       "patch": {
         "description": "Change only the fields sent; null clears an optional field. Not the status (JT-26).",
-        "operationId": "update_job_api_jobs__job_id__patch",
+        "operationId": "update_job_api_v1_jobs__job_id__patch",
         "parameters": [
           {
             "in": "path",
@@ -1683,10 +1683,10 @@
         ]
       }
     },
-    "/api/jobs/{job_id}/history": {
+    "/api/v1/jobs/{job_id}/history": {
       "get": {
         "description": "The job's status changes, newest first.",
-        "operationId": "status_history_api_jobs__job_id__history_get",
+        "operationId": "status_history_api_v1_jobs__job_id__history_get",
         "parameters": [
           {
             "in": "path",
@@ -1707,7 +1707,7 @@
                   "items": {
                     "$ref": "#/components/schemas/HistoryEntry"
                   },
-                  "title": "Response Status History Api Jobs  Job Id  History Get",
+                  "title": "Response Status History Api V1 Jobs  Job Id  History Get",
                   "type": "array"
                 }
               }
@@ -1731,10 +1731,10 @@
         ]
       }
     },
-    "/api/jobs/{job_id}/interviews": {
+    "/api/v1/jobs/{job_id}/interviews": {
       "get": {
         "description": "A job's interviews: scheduled ones by date, then unscheduled ones.",
-        "operationId": "list_job_interviews_api_jobs__job_id__interviews_get",
+        "operationId": "list_job_interviews_api_v1_jobs__job_id__interviews_get",
         "parameters": [
           {
             "in": "path",
@@ -1755,7 +1755,7 @@
                   "items": {
                     "$ref": "#/components/schemas/InterviewOut"
                   },
-                  "title": "Response List Job Interviews Api Jobs  Job Id  Interviews Get",
+                  "title": "Response List Job Interviews Api V1 Jobs  Job Id  Interviews Get",
                   "type": "array"
                 }
               }
@@ -1780,7 +1780,7 @@
       },
       "post": {
         "description": "Add an interview. Every field is optional; the job's status doesn't change.",
-        "operationId": "create_interview_api_jobs__job_id__interviews_post",
+        "operationId": "create_interview_api_v1_jobs__job_id__interviews_post",
         "parameters": [
           {
             "in": "path",
@@ -1831,9 +1831,9 @@
         ]
       }
     },
-    "/api/jobs/{job_id}/interviews/{interview_id}": {
+    "/api/v1/jobs/{job_id}/interviews/{interview_id}": {
       "delete": {
-        "operationId": "delete_interview_api_jobs__job_id__interviews__interview_id__delete",
+        "operationId": "delete_interview_api_v1_jobs__job_id__interviews__interview_id__delete",
         "parameters": [
           {
             "in": "path",
@@ -1877,7 +1877,7 @@
         ]
       },
       "get": {
-        "operationId": "get_interview_api_jobs__job_id__interviews__interview_id__get",
+        "operationId": "get_interview_api_v1_jobs__job_id__interviews__interview_id__get",
         "parameters": [
           {
             "in": "path",
@@ -1929,7 +1929,7 @@
       },
       "patch": {
         "description": "Change only the fields sent; null clears a field.",
-        "operationId": "update_interview_api_jobs__job_id__interviews__interview_id__patch",
+        "operationId": "update_interview_api_v1_jobs__job_id__interviews__interview_id__patch",
         "parameters": [
           {
             "in": "path",
@@ -1990,10 +1990,10 @@
         ]
       }
     },
-    "/api/jobs/{job_id}/status": {
+    "/api/v1/jobs/{job_id}/status": {
       "post": {
         "description": "Change a job's status, recording it in the history.\n\nAny status can move to any other. Setting the status it already has changes nothing.\nBecoming `applied` fills in today's date (in your time zone) if there's none;\ngoing back to `saved` clears it.",
-        "operationId": "change_status_api_jobs__job_id__status_post",
+        "operationId": "change_status_api_v1_jobs__job_id__status_post",
         "parameters": [
           {
             "in": "path",
@@ -2044,9 +2044,9 @@
         ]
       }
     },
-    "/api/me": {
+    "/api/v1/me": {
       "get": {
-        "operationId": "get_me_api_me_get",
+        "operationId": "get_me_api_v1_me_get",
         "responses": {
           "200": {
             "content": {
@@ -2065,10 +2065,10 @@
         ]
       }
     },
-    "/api/me/timezone": {
+    "/api/v1/me/timezone": {
       "put": {
         "description": "Store your IANA time zone (e.g. Europe/London), used for server-side dates.",
-        "operationId": "set_timezone_api_me_timezone_put",
+        "operationId": "set_timezone_api_v1_me_timezone_put",
         "requestBody": {
           "content": {
             "application/json": {

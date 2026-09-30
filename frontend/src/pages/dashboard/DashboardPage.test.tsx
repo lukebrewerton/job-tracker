@@ -98,9 +98,9 @@ function serve(initial: Partial<Dashboard> = {}, extra: Handlers = {}) {
     return marked.map((j) => j.id);
   };
   const handlers: Handlers = {
-    "GET /api/me": () => json(ME),
-    "GET /api/dashboard": () => json(state),
-    "POST /api/jobs/bulk-status": async (request) => {
+    "GET /api/v1/me": () => json(ME),
+    "GET /api/v1/dashboard": () => json(state),
+    "POST /api/v1/jobs/bulk-status": async (request) => {
       const body: unknown = await request.json();
       const ids =
         body &&
@@ -113,7 +113,7 @@ function serve(initial: Partial<Dashboard> = {}, extra: Handlers = {}) {
     },
     ...Object.fromEntries(
       (initial.no_response_candidates ?? []).map((job) => [
-        `POST /api/jobs/${job.id}/status`,
+        `POST /api/v1/jobs/${job.id}/status`,
         () => {
           mark([job.id]);
           return json({ ...job, status: "no_response" });
@@ -232,7 +232,7 @@ describe("marking as no response", () => {
       { no_response_candidates: [initech, staleJob()] },
       {
         // Held until released, to see the row go before the server answers.
-        [`POST /api/jobs/${initech.id}/status`]: async () => {
+        [`POST /api/v1/jobs/${initech.id}/status`]: async () => {
           await held;
           api.mark([initech.id]);
           return json({ ...initech, status: "no_response" });
@@ -278,7 +278,7 @@ describe("marking as no response", () => {
     serve(
       { no_response_candidates: [job] },
       {
-        [`POST /api/jobs/${job.id}/status`]: () =>
+        [`POST /api/v1/jobs/${job.id}/status`]: () =>
           json({ detail: "Database unavailable" }, 500),
       },
     );
@@ -303,7 +303,7 @@ describe("marking as no response", () => {
     serve(
       { no_response_candidates: jobs },
       {
-        "POST /api/jobs/bulk-status": async (request) => {
+        "POST /api/v1/jobs/bulk-status": async (request) => {
           sent = await request.json();
           return json({
             updated: jobs.map((j) => j.id),

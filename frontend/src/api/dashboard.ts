@@ -8,5 +8,5 @@ export type DashboardCounts = components["schemas"]["DashboardCounts"];
 export type StaleJob = components["schemas"]["StaleJobOut"];
 
 export function getDashboard(): Promise<Dashboard> {
-  return unwrap(api.GET("/api/dashboard"));
+  return unwrap(api.GET("/api/v1/dashboard"));
 }
