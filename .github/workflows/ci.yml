@@ -49,6 +49,8 @@ jobs:
           enable-cache: true
       - run: uv sync --frozen
       - run: make lint-api
+      # Every file has copyright and licence information (REUSE): a header, or REUSE.toml.
+      - run: make reuse-lint
       # PRs only: compare the PR's openapi.json with its base branch's, and fail on changes
       # that would break a client (README → API versions). The `breaking-api` label turns
       # a failure into a report, for a deliberate break. Not on pushes to main: the PR

@@ -80,10 +80,15 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
 - **Tests that touch the database** use the `test_db_url` / `db_engine` / `db_session`
   fixtures (a separate `<db>_test` database, rebuilt and migrated per run). They need
   `make up` locally and fail — not skip — without it.
+<!-- REUSE-IgnoreStart -->
 - **SPDX header** as the first lines of every authored source file (before any
   docstring): `# Copyright (C) 2026 Luke Brewerton` /
   `# SPDX-License-Identifier: AGPL-3.0-or-later` for Python, `//` for TypeScript, `/* */` for
   CSS, `<!-- -->` for HTML (after the doctype).
+<!-- REUSE-IgnoreEnd -->
+  Files that can't hold a comment (JSON, lockfiles, generated files, docs, some dotfiles)
+  are listed by name in `REUSE.toml` instead. `make reuse-lint` (part of `make lint`, and
+  in CI) fails on any file with neither.
 - **British spelling** in prose, comments and UI copy.
 - The entity is a **job** everywhere (table, API, routes) — never "application".
 
@@ -127,6 +132,8 @@ Targets come in pairs per stack (`-api`, `-web`); the bare name runs both.
   types from `openapi.json`
 - `make format` — ruff fix/format and prettier --write
 - `make secrets-scan` — gitleaks over the full git history (pinned Docker image, same as CI)
+- `make reuse-lint` — every file has copyright and licence information (REUSE; pinned
+  Docker image, same as CI)
 - `make version-check` — the three version numbers agree, and MAJOR = the newest API version
 - `make api-breaking` — oasdiff: breaking changes to `openapi.json` vs `origin/main`
   (`API_BASE=…` to compare elsewhere, `ALLOW_BREAKING=1` to report without failing)
@@ -140,4 +147,5 @@ Targets come in pairs per stack (`-api`, `-web`); the bare name runs both.
 1. `make lint` and `make test` pass (both stacks).
 2. Alembic migration included if the schema changed.
 3. Any new env var added to `.env.example` (placeholder only); no real secret staged.
-4. SPDX headers on new source files.
+4. Licence information on every new file: an SPDX header, or an entry in `REUSE.toml`
+   (`make reuse-lint`).
