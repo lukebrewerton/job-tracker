@@ -1,6 +1,6 @@
 # Copyright (C) 2026 Luke Brewerton
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""/api/me and per-user time zones: "today" is the user's own calendar day.
+"""/api/v1/me and per-user time zones: "today" is the user's own calendar day.
 
 Cross-user isolation is in test_isolation.py.
 """
@@ -26,18 +26,18 @@ def _at(monkeypatch: pytest.MonkeyPatch, moment: str) -> None:
     monkeypatch.setattr(timezones, "now", lambda: instant)
 
 
-# --- /api/me ----------------------------------------------------------------------------------
+# --- /api/v1/me ----------------------------------------------------------------------------------
 
 
 def test_new_users_default_to_utc(api: TestClient) -> None:
-    assert api.get("/api/me").json() == {"email": ALLOWED_EMAIL, "timezone": "UTC"}
+    assert api.get("/api/v1/me").json() == {"email": ALLOWED_EMAIL, "timezone": "UTC"}
 
 
 def test_set_timezone(api: TestClient) -> None:
-    resp = api.put("/api/me/timezone", json={"timezone": "Europe/London"})
+    resp = api.put("/api/v1/me/timezone", json={"timezone": "Europe/London"})
     assert resp.status_code == 200
     assert resp.json() == {"timezone": "Europe/London"}
-    assert api.get("/api/me").json()["timezone"] == "Europe/London"
+    assert api.get("/api/v1/me").json()["timezone"] == "Europe/London"
 
 
 @pytest.mark.parametrize(
@@ -52,14 +52,14 @@ def test_set_timezone(api: TestClient) -> None:
     ],
 )
 def test_unknown_timezones_are_a_422(api: TestClient, timezone: str) -> None:
-    resp = api.put("/api/me/timezone", json={"timezone": timezone})
+    resp = api.put("/api/v1/me/timezone", json={"timezone": timezone})
     assert resp.status_code == 422
     assert resp.json()["detail"][0]["loc"][-1] == "timezone"
-    assert api.get("/api/me").json()["timezone"] == "UTC"
+    assert api.get("/api/v1/me").json()["timezone"] == "UTC"
 
 
 def test_timezone_update_rejects_unknown_fields(api: TestClient) -> None:
-    resp = api.put("/api/me/timezone", json={"timezone": "Europe/London", "email": "x@y.test"})
+    resp = api.put("/api/v1/me/timezone", json={"timezone": "Europe/London", "email": "x@y.test"})
     assert resp.status_code == 422
 
 
@@ -86,10 +86,10 @@ def test_created_as_applied_gets_the_users_own_date(
     timezone: str,
     today: str,
 ) -> None:
-    api.put("/api/me/timezone", json={"timezone": timezone})
+    api.put("/api/v1/me/timezone", json={"timezone": timezone})
     _at(monkeypatch, moment_utc)
     job: dict[str, Any] = api.post(
-        "/api/jobs", json={"company": "Acme", "role": "Eng", "status": "applied"}
+        "/api/v1/jobs", json={"company": "Acme", "role": "Eng", "status": "applied"}
     ).json()
     assert job["applied_at"] == today
 
@@ -97,10 +97,10 @@ def test_created_as_applied_gets_the_users_own_date(
 def test_a_date_sent_by_the_client_is_kept_as_is(
     api: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    api.put("/api/me/timezone", json={"timezone": "Europe/London"})
+    api.put("/api/v1/me/timezone", json={"timezone": "Europe/London"})
     _at(monkeypatch, "2026-09-25T23:30")
     job = api.post(
-        "/api/jobs",
+        "/api/v1/jobs",
         json={"company": "Acme", "role": "Eng", "status": "applied", "applied_at": "2026-09-20"},
     ).json()
     assert job["applied_at"] == "2026-09-20"

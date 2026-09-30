@@ -23,14 +23,14 @@ JOB = {"company": "Acme Ltd", "role": "Platform Engineer"}
 
 
 def _create(api: TestClient, **fields: Any) -> dict[str, Any]:
-    resp = api.post("/api/jobs", json={**JOB, **fields})
+    resp = api.post("/api/v1/jobs", json={**JOB, **fields})
     assert resp.status_code == 201, resp.text
     job: dict[str, Any] = resp.json()
     return job
 
 
 def _status(api: TestClient, job: dict[str, Any], status: str) -> dict[str, Any]:
-    resp = api.post(f"/api/jobs/{job['id']}/status", json={"status": status})
+    resp = api.post(f"/api/v1/jobs/{job['id']}/status", json={"status": status})
     assert resp.status_code == 200, resp.text
     updated: dict[str, Any] = resp.json()
     return updated
@@ -38,7 +38,7 @@ def _status(api: TestClient, job: dict[str, Any], status: str) -> dict[str, Any]
 
 def _history(api: TestClient, job: dict[str, Any]) -> list[str]:
     """Statuses in the job's history, newest first."""
-    resp = api.get(f"/api/jobs/{job['id']}/history")
+    resp = api.get(f"/api/v1/jobs/{job['id']}/history")
     assert resp.status_code == 200, resp.text
     return [entry["status"] for entry in resp.json()]
 
@@ -56,7 +56,7 @@ def today(monkeypatch: pytest.MonkeyPatch) -> date:
 def test_creation_and_each_change_write_a_timestamped_history_row(api: TestClient) -> None:
     # Created as interviewing, not the default: the first row records the status given.
     job = _create(api, status="interviewing")
-    [entry] = api.get(f"/api/jobs/{job['id']}/history").json()
+    [entry] = api.get(f"/api/v1/jobs/{job['id']}/history").json()
     assert entry["status"] == "interviewing"
     assert datetime.fromisoformat(entry["changed_at"]).tzinfo is not None
     before = job
@@ -95,20 +95,20 @@ def test_any_status_can_move_to_any_other(
 )
 def test_invalid_status_change_is_a_422(api: TestClient, body: dict[str, Any]) -> None:
     job = _create(api)
-    assert api.post(f"/api/jobs/{job['id']}/status", json=body).status_code == 422
+    assert api.post(f"/api/v1/jobs/{job['id']}/status", json=body).status_code == 422
 
 
 def test_unknown_job_is_a_404(api: TestClient) -> None:
     missing = uuid.uuid4()
-    assert api.post(f"/api/jobs/{missing}/status", json={"status": "applied"}).status_code == 404
-    assert api.get(f"/api/jobs/{missing}/history").status_code == 404
+    assert api.post(f"/api/v1/jobs/{missing}/status", json={"status": "applied"}).status_code == 404
+    assert api.get(f"/api/v1/jobs/{missing}/history").status_code == 404
 
 
 # --- applied_at -------------------------------------------------------------------------------
 
 
 def test_today_is_the_users_own_date(api: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    api.put("/api/me/timezone", json={"timezone": "Europe/London"})
+    api.put("/api/v1/me/timezone", json={"timezone": "Europe/London"})
     # 00:30 BST on 26 September: still the 25th in UTC.
     monkeypatch.setattr(timezones, "now", lambda: datetime(2026, 9, 25, 23, 30, tzinfo=UTC))
     assert _status(api, _create(api), "applied")["applied_at"] == "2026-09-26"
@@ -142,7 +142,9 @@ def test_applied_at_for() -> None:
 
 
 def _bulk(api: TestClient, ids: list[Any], status: str) -> dict[str, list[str]]:
-    resp = api.post("/api/jobs/bulk-status", json={"ids": [str(i) for i in ids], "status": status})
+    resp = api.post(
+        "/api/v1/jobs/bulk-status", json={"ids": [str(i) for i in ids], "status": status}
+    )
     assert resp.status_code == 200, resp.text
     result: dict[str, list[str]] = resp.json()
     return result
@@ -155,7 +157,7 @@ def test_bulk_updates_each_job_with_one_history_row_each(api: TestClient) -> Non
     assert result == {"updated": [a["id"], b["id"]], "unchanged": [], "not_found": []}
     for job in (a, b):
         assert _history(api, job) == ["no_response", "applied"]
-        assert api.get(f"/api/jobs/{job['id']}").json()["status"] == "no_response"
+        assert api.get(f"/api/v1/jobs/{job['id']}").json()["status"] == "no_response"
 
 
 def test_bulk_reports_unchanged_and_not_found_and_counts_duplicates_once(
@@ -179,8 +181,8 @@ def test_bulk_applies_the_applied_at_rules(api: TestClient, today: date) -> None
     saved = _create(api, company="A")
     applied = _create(api, company="B", status="applied", applied_at="2026-09-01")
     _bulk(api, [saved["id"], applied["id"]], "applied")
-    assert api.get(f"/api/jobs/{saved['id']}").json()["applied_at"] == today.isoformat()
-    assert api.get(f"/api/jobs/{applied['id']}").json()["applied_at"] == "2026-09-01"
+    assert api.get(f"/api/v1/jobs/{saved['id']}").json()["applied_at"] == today.isoformat()
+    assert api.get(f"/api/v1/jobs/{applied['id']}").json()["applied_at"] == "2026-09-01"
 
 
 @pytest.mark.parametrize(
@@ -194,7 +196,7 @@ def test_bulk_applies_the_applied_at_rules(api: TestClient, today: date) -> None
     ],
 )
 def test_bulk_validation(api: TestClient, body: dict[str, Any]) -> None:
-    assert api.post("/api/jobs/bulk-status", json=body).status_code == 422
+    assert api.post("/api/v1/jobs/bulk-status", json=body).status_code == 422
 
 
 def test_bulk_accepts_500_ids(api: TestClient) -> None:

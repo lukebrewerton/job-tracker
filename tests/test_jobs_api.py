@@ -1,6 +1,6 @@
 # Copyright (C) 2026 Luke Brewerton
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""/api/jobs: create, read, update, delete, list (filter, search, sort, paging),
+"""/api/v1/jobs: create, read, update, delete, list (filter, search, sort, paging),
 duplicates, and company matching. Cross-user isolation is in test_isolation.py."""
 
 import uuid
@@ -30,7 +30,7 @@ async def _sql(engine: AsyncEngine, user_id: uuid.UUID, sql: str, **params: Any)
 
 
 def _create(api: TestClient, **fields: Any) -> dict[str, Any]:
-    resp = api.post("/api/jobs", json={**JOB, **fields})
+    resp = api.post("/api/v1/jobs", json={**JOB, **fields})
     assert resp.status_code == 201, resp.text
     body: dict[str, Any] = resp.json()
     return body
@@ -77,7 +77,7 @@ def test_create_with_another_status_invents_no_applied_date(api: TestClient) -> 
 
 
 def test_saved_job_cannot_have_an_applied_date(api: TestClient) -> None:
-    resp = api.post("/api/jobs", json={**JOB, "applied_at": "2026-09-20"})
+    resp = api.post("/api/v1/jobs", json={**JOB, "applied_at": "2026-09-20"})
     assert any(SAVED_WITH_APPLIED_AT in msg for _, msg in _errors(resp))
 
 
@@ -98,7 +98,7 @@ def test_saved_job_cannot_have_an_applied_date(api: TestClient) -> None:
     ],
 )
 def test_create_validation(api: TestClient, fields: dict[str, Any], field: str) -> None:
-    resp = api.post("/api/jobs", json={**JOB, **fields})
+    resp = api.post("/api/v1/jobs", json={**JOB, **fields})
     assert field in [f for f, _ in _errors(resp)]
 
 
@@ -108,7 +108,7 @@ def test_create_validation(api: TestClient, fields: dict[str, Any], field: str) 
 def test_same_canonical_url_is_a_409_with_the_existing_id(api: TestClient) -> None:
     first = _create(api, url="https://careers.acme.test/jobs/42")
     resp = api.post(
-        "/api/jobs", json={**JOB, "url": "HTTPS://Careers.Acme.test/jobs/42/?utm_source=x#apply"}
+        "/api/v1/jobs", json={**JOB, "url": "HTTPS://Careers.Acme.test/jobs/42/?utm_source=x#apply"}
     )
     assert resp.status_code == 409
     assert resp.json() == {"detail": "Already tracked", "existing_id": first["id"]}
@@ -125,10 +125,10 @@ def test_no_url_or_different_urls_are_not_duplicates(api: TestClient) -> None:
 def test_patching_to_another_jobs_url_is_a_409_but_to_its_own_is_fine(api: TestClient) -> None:
     first = _create(api, url="https://acme.test/jobs/1")
     second = _create(api, url="https://acme.test/jobs/2")
-    resp = api.patch(f"/api/jobs/{second['id']}", json={"url": "https://acme.test/jobs/1/"})
+    resp = api.patch(f"/api/v1/jobs/{second['id']}", json={"url": "https://acme.test/jobs/1/"})
     assert resp.status_code == 409
     assert resp.json()["existing_id"] == first["id"]
-    own = api.patch(f"/api/jobs/{first['id']}", json={"url": "https://acme.test/jobs/1?utm_x=1"})
+    own = api.patch(f"/api/v1/jobs/{first['id']}", json={"url": "https://acme.test/jobs/1?utm_x=1"})
     assert own.status_code == 200
 
 
@@ -147,7 +147,7 @@ async def test_a_racing_duplicate_is_still_a_409(
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(jobs, "_existing_with_url", miss_once)
-        resp = api.post("/api/jobs", json={**JOB, "url": "https://acme.test/jobs/1"})
+        resp = api.post("/api/v1/jobs", json={**JOB, "url": "https://acme.test/jobs/1"})
     assert resp.status_code == 409
     assert resp.json()["existing_id"] == first["id"]
 
@@ -157,23 +157,25 @@ async def test_a_racing_duplicate_is_still_a_409(
 
 def test_get_returns_the_job(api: TestClient) -> None:
     job = _create(api, location="London")
-    assert api.get(f"/api/jobs/{job['id']}").json() == job
+    assert api.get(f"/api/v1/jobs/{job['id']}").json() == job
 
 
 def test_unknown_job_is_a_404(api: TestClient) -> None:
     for method in ("GET", "PATCH", "DELETE"):
-        resp = api.request(method, f"/api/jobs/{uuid.uuid4()}", json={"notes": "x"})
+        resp = api.request(method, f"/api/v1/jobs/{uuid.uuid4()}", json={"notes": "x"})
         assert resp.status_code == 404, method
 
 
 def test_patch_changes_only_the_fields_sent(api: TestClient) -> None:
     job = _create(api, location="London", salary="£70k")
-    updated = api.patch(f"/api/jobs/{job['id']}", json={"location": "Remote"}).json()
+    updated = api.patch(f"/api/v1/jobs/{job['id']}", json={"location": "Remote"}).json()
     assert updated["location"] == "Remote"
     assert updated["salary"] == "£70k"
     assert updated["updated_at"] >= job["updated_at"]
     # null clears an optional field.
-    assert api.patch(f"/api/jobs/{job['id']}", json={"location": None}).json()["location"] is None
+    assert (
+        api.patch(f"/api/v1/jobs/{job['id']}", json={"location": None}).json()["location"] is None
+    )
 
 
 @pytest.mark.parametrize(
@@ -186,24 +188,24 @@ def test_patch_changes_only_the_fields_sent(api: TestClient) -> None:
 )
 def test_patch_rejects(api: TestClient, body: dict[str, Any], field: str) -> None:
     job = _create(api)
-    assert field in [f for f, _ in _errors(api.patch(f"/api/jobs/{job['id']}", json=body))]
+    assert field in [f for f, _ in _errors(api.patch(f"/api/v1/jobs/{job['id']}", json=body))]
 
 
 def test_patch_cannot_give_a_saved_job_an_applied_date(api: TestClient) -> None:
     job = _create(api)
-    resp = api.patch(f"/api/jobs/{job['id']}", json={"applied_at": "2026-09-20"})
+    resp = api.patch(f"/api/v1/jobs/{job['id']}", json={"applied_at": "2026-09-20"})
     assert _errors(resp) == [("applied_at", SAVED_WITH_APPLIED_AT)]
 
 
 def test_patch_can_edit_the_applied_date_of_an_applied_job(api: TestClient) -> None:
     job = _create(api, status="applied", applied_at="2026-09-20")
-    resp = api.patch(f"/api/jobs/{job['id']}", json={"applied_at": "2026-09-18"})
+    resp = api.patch(f"/api/v1/jobs/{job['id']}", json={"applied_at": "2026-09-18"})
     assert resp.json()["applied_at"] == "2026-09-18"
 
 
 def test_patch_editing_fields_does_not_count_as_movement(api: TestClient) -> None:
     job = _create(api)
-    updated = api.patch(f"/api/jobs/{job['id']}", json={"notes": "Chased"}).json()
+    updated = api.patch(f"/api/v1/jobs/{job['id']}", json={"notes": "Chased"}).json()
     assert updated["last_status_change_at"] == job["last_status_change_at"]
 
 
@@ -211,8 +213,8 @@ async def test_delete_removes_the_job_and_its_history(
     api: TestClient, db_engine: AsyncEngine, user: tuple[uuid.UUID, str]
 ) -> None:
     job = _create(api)
-    assert api.delete(f"/api/jobs/{job['id']}").status_code == 204
-    assert api.get(f"/api/jobs/{job['id']}").status_code == 404
+    assert api.delete(f"/api/v1/jobs/{job['id']}").status_code == 204
+    assert api.get(f"/api/v1/jobs/{job['id']}").status_code == 404
     async with db_engine.begin() as conn:
         await conn.execute(text("SELECT set_config('app.user_id', :u, true)"), {"u": str(user[0])})
         left = await conn.execute(
@@ -238,28 +240,28 @@ def mixed(api: TestClient) -> None:
 
 @pytest.mark.usefixtures("mixed")
 def test_list_defaults_to_active(api: TestClient) -> None:
-    page = api.get("/api/jobs").json()
+    page = api.get("/api/v1/jobs").json()
     assert sorted(_companies(page)) == ["Applied", "Interviewing", "Offer", "Saved"]
     assert page["total"] == 4
 
 
 @pytest.mark.usefixtures("mixed")
 def test_list_groups_and_single_status(api: TestClient) -> None:
-    assert api.get("/api/jobs", params={"status": "all"}).json()["total"] == 8
-    rejected = api.get("/api/jobs", params={"status": "rejected"}).json()
+    assert api.get("/api/v1/jobs", params={"status": "all"}).json()["total"] == 8
+    rejected = api.get("/api/v1/jobs", params={"status": "rejected"}).json()
     assert _companies(rejected) == ["Rejected"]
     # Closed: ended without an offer taken. Accepted is a success, so it's not included.
-    closed = api.get("/api/jobs", params={"status": "closed", "sort": "company", "order": "asc"})
+    closed = api.get("/api/v1/jobs", params={"status": "closed", "sort": "company", "order": "asc"})
     assert _companies(closed.json()) == ["NoResponse", "Rejected", "Withdrawn"]
     assert closed.json()["total"] == 3
     # Search and sort still apply within the group.
-    searched = api.get("/api/jobs", params={"status": "closed", "q": "re"}).json()
+    searched = api.get("/api/v1/jobs", params={"status": "closed", "q": "re"}).json()
     assert sorted(_companies(searched)) == ["NoResponse", "Rejected"]
 
 
 @pytest.mark.usefixtures("mixed")
 def test_counts_cover_every_status_and_ignore_filter_and_search(api: TestClient) -> None:
-    page = api.get("/api/jobs", params={"status": "offer", "q": "offer"}).json()
+    page = api.get("/api/v1/jobs", params={"status": "offer", "q": "offer"}).json()
     assert page["total"] == 1
     assert page["counts"] == {
         "saved": 1,
@@ -277,29 +279,31 @@ def test_search_matches_company_or_role_case_insensitively(api: TestClient) -> N
     _create(api, company="Acme", role="Engineer")
     _create(api, company="Globex", role="Platform ENGINEER")
     _create(api, company="Initech", role="Manager")
-    assert sorted(_companies(api.get("/api/jobs", params={"q": "engineer"}).json())) == [
+    assert sorted(_companies(api.get("/api/v1/jobs", params={"q": "engineer"}).json())) == [
         "Acme",
         "Globex",
     ]
-    assert _companies(api.get("/api/jobs", params={"q": "  initech "}).json()) == ["Initech"]
+    assert _companies(api.get("/api/v1/jobs", params={"q": "  initech "}).json()) == ["Initech"]
 
 
 def test_search_treats_like_wildcards_literally(api: TestClient) -> None:
     _create(api, company="100% Remote Ltd")
     _create(api, company="Acme")
-    assert _companies(api.get("/api/jobs", params={"q": "0%"}).json()) == ["100% Remote Ltd"]
-    assert _companies(api.get("/api/jobs", params={"q": "a_"}).json()) == []
+    assert _companies(api.get("/api/v1/jobs", params={"q": "0%"}).json()) == ["100% Remote Ltd"]
+    assert _companies(api.get("/api/v1/jobs", params={"q": "a_"}).json()) == []
 
 
 @pytest.mark.parametrize("q", ["a", " a ", "é"])
 def test_search_needs_at_least_2_characters(api: TestClient, q: str) -> None:
-    assert _errors(api.get("/api/jobs", params={"q": q})) == [("q", "Enter at least 2 characters")]
+    assert _errors(api.get("/api/v1/jobs", params={"q": q})) == [
+        ("q", "Enter at least 2 characters")
+    ]
 
 
 @pytest.mark.parametrize("q", ["", "   "])
 def test_blank_search_means_no_search(api: TestClient, q: str) -> None:
     _create(api)
-    assert api.get("/api/jobs", params={"q": q}).json()["total"] == 1
+    assert api.get("/api/v1/jobs", params={"q": q}).json()["total"] == 1
 
 
 # --- List: sort and paging --------------------------------------------------------------------
@@ -330,7 +334,7 @@ async def test_sorting(
 
     def order(sort: str, direction: str = "asc") -> list[str]:
         params = {"status": "all", "sort": sort, "order": direction}
-        return _companies(api.get("/api/jobs", params=params).json())
+        return _companies(api.get("/api/v1/jobs", params=params).json())
 
     assert order("company") == ["acme", "Beta", "Cyan"]  # case-insensitive
     assert order("role") == ["Beta", "Cyan", "acme"]  # Ann, mid, Zed
@@ -342,7 +346,7 @@ async def test_sorting(
     assert order("applied_at") == ["Beta", "acme", "Cyan"]
     assert order("applied_at", "desc") == ["acme", "Beta", "Cyan"]
     # Default: newest first.
-    assert _companies(api.get("/api/jobs", params={"status": "all"}).json()) == [
+    assert _companies(api.get("/api/v1/jobs", params={"status": "all"}).json()) == [
         "acme",
         "Beta",
         "Cyan",
@@ -353,26 +357,26 @@ def test_paging(api: TestClient) -> None:
     for n in range(30):
         _create(api, company=f"Company {n:02}")
     params: dict[str, Any] = {"sort": "company", "order": "asc", "page_size": 25}
-    first = api.get("/api/jobs", params=params).json()
-    second = api.get("/api/jobs", params={**params, "page": 2}).json()
+    first = api.get("/api/v1/jobs", params=params).json()
+    second = api.get("/api/v1/jobs", params={**params, "page": 2}).json()
     assert (first["total"], first["page"], first["page_size"]) == (30, 1, 25)
     assert len(first["items"]) == 25
     assert _companies(second) == [f"Company {n:02}" for n in range(25, 30)]
-    beyond = api.get("/api/jobs", params={**params, "page": 3}).json()
+    beyond = api.get("/api/v1/jobs", params={**params, "page": 3}).json()
     assert (beyond["items"], beyond["total"]) == ([], 30)
 
 
 @pytest.mark.parametrize(("size", "expected"), [(None, 25), (25, 25), (50, 50), (100, 100)])
 def test_page_sizes(api: TestClient, size: int | None, expected: int) -> None:
     params = {} if size is None else {"page_size": size}
-    assert api.get("/api/jobs", params=params).json()["page_size"] == expected
+    assert api.get("/api/v1/jobs", params=params).json()["page_size"] == expected
 
 
 @pytest.mark.parametrize(
     "params", [{"status": "archived"}, {"page_size": 10}, {"page_size": 200}, {"page": 0}]
 )
 def test_invalid_list_parameters_are_a_422(api: TestClient, params: dict[str, Any]) -> None:
-    assert api.get("/api/jobs", params=params).status_code == 422
+    assert api.get("/api/v1/jobs", params=params).status_code == 422
 
 
 async def test_last_status_change_is_the_latest_history_entry(
@@ -387,7 +391,7 @@ async def test_last_status_change_is_the_latest_history_entry(
         j=job["id"],
         u=user[0],
     )
-    got = api.get(f"/api/jobs/{job['id']}").json()["last_status_change_at"]
+    got = api.get(f"/api/v1/jobs/{job['id']}").json()["last_status_change_at"]
     assert got.startswith("2030-01-01T09:00:00")
 
 
@@ -395,7 +399,7 @@ async def test_last_status_change_is_the_latest_history_entry(
 
 
 def _matches(api: TestClient, company: str) -> list[dict[str, Any]]:
-    resp = api.get("/api/jobs/company-matches", params={"company": company})
+    resp = api.get("/api/v1/jobs/company-matches", params={"company": company})
     assert resp.status_code == 200, resp.text
     companies: list[dict[str, Any]] = resp.json()["companies"]
     return companies
@@ -425,7 +429,7 @@ def test_company_matches_on_the_start_of_a_word(api: TestClient) -> None:
 
 @pytest.mark.parametrize("company", ["a", " a ", "a.", "a Ltd"])
 def test_company_matches_need_at_least_2_characters(api: TestClient, company: str) -> None:
-    resp = api.get("/api/jobs/company-matches", params={"company": company})
+    resp = api.get("/api/v1/jobs/company-matches", params={"company": company})
     assert _errors(resp) == [("company", "Enter at least 2 characters")]
 
 

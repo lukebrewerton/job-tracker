@@ -1,6 +1,6 @@
 # Copyright (C) 2026 Luke Brewerton
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Interviews: CRUD under /api/jobs/{job_id}/interviews, and /api/interviews across jobs.
+"""Interviews: CRUD under /api/v1/jobs/{job_id}/interviews, and /api/v1/interviews across jobs.
 
 A single interview is found through both the job in the URL and the current user: an
 interview under the wrong job, or another user's, is a 404, like a missing one.

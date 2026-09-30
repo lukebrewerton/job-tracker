@@ -43,10 +43,10 @@ type Handlers = Parameters<typeof mockApi>[0];
 
 function serve(extra: Handlers = {}) {
   return mockApi({
-    "GET /api/me": () => json(ME),
-    [`GET /api/jobs/${ID}`]: () => json(job()),
-    [`GET /api/jobs/${ID}/history`]: () => json(HISTORY),
-    [`GET /api/jobs/${ID}/interviews`]: () =>
+    "GET /api/v1/me": () => json(ME),
+    [`GET /api/v1/jobs/${ID}`]: () => json(job()),
+    [`GET /api/v1/jobs/${ID}/history`]: () => json(HISTORY),
+    [`GET /api/v1/jobs/${ID}/interviews`]: () =>
       json([
         {
           id: "0199cccc-0000-7000-8000-000000000001",
@@ -67,7 +67,7 @@ function serve(extra: Handlers = {}) {
           created_at: "2026-09-11T09:00:00Z",
         },
       ]),
-    "GET /api/jobs": () =>
+    "GET /api/v1/jobs": () =>
       json({ items: [], total: 0, page: 1, page_size: 25, counts: {} }),
     ...extra,
   });
@@ -107,7 +107,7 @@ describe("the job page", () => {
 
   it("says Job not found for a missing job, without an error toast", async () => {
     serve({
-      [`GET /api/jobs/${ID}`]: () => json({ detail: "Job not found" }, 404),
+      [`GET /api/v1/jobs/${ID}`]: () => json({ detail: "Job not found" }, 404),
     });
     render(<Toaster />);
     renderApp(`/jobs/${ID}`);
@@ -120,7 +120,7 @@ describe("the job page", () => {
 
   it("hides the applied date for a saved job", async () => {
     serve({
-      [`GET /api/jobs/${ID}`]: () =>
+      [`GET /api/v1/jobs/${ID}`]: () =>
         json(job({ status: "saved", applied_at: null })),
     });
     renderApp(`/jobs/${ID}`);
@@ -133,7 +133,7 @@ describe("changing the status", () => {
   it("shows the new status straight away, then refreshes the history", async () => {
     let finish!: () => void;
     const { requests } = serve({
-      [`POST /api/jobs/${ID}/status`]: () =>
+      [`POST /api/v1/jobs/${ID}/status`]: () =>
         new Promise((resolve) => {
           finish = () =>
             resolve(
@@ -169,7 +169,7 @@ describe("changing the status", () => {
 
   it("rolls back visibly, with a toast, when the change fails", async () => {
     serve({
-      [`POST /api/jobs/${ID}/status`]: () =>
+      [`POST /api/v1/jobs/${ID}/status`]: () =>
         json({ detail: "Database unavailable" }, 500),
     });
     const user = userEvent.setup();
@@ -191,7 +191,7 @@ describe("editing the details", () => {
   it("offers Save only when something changed, and sends just the changes", async () => {
     let sent: unknown;
     serve({
-      [`PATCH /api/jobs/${ID}`]: async (request) => {
+      [`PATCH /api/v1/jobs/${ID}`]: async (request) => {
         sent = await request.json();
         return json(job({ location: "Remote", salary: "£80k" }));
       },
@@ -235,7 +235,7 @@ describe("editing the details", () => {
 
   it("shows validation errors under their fields", async () => {
     serve({
-      [`PATCH /api/jobs/${ID}`]: () =>
+      [`PATCH /api/v1/jobs/${ID}`]: () =>
         json(
           {
             detail: [
@@ -263,7 +263,7 @@ describe("editing the details", () => {
 
   it("says when the new URL is another job's", async () => {
     serve({
-      [`PATCH /api/jobs/${ID}`]: () =>
+      [`PATCH /api/v1/jobs/${ID}`]: () =>
         json(
           {
             detail: "Already tracked",
@@ -308,7 +308,7 @@ describe("editing the details", () => {
 describe("deleting", () => {
   it("confirms, naming the job and what goes with it, then returns to the list", async () => {
     const { requests } = serve({
-      [`DELETE /api/jobs/${ID}`]: () => new Response(null, { status: 204 }),
+      [`DELETE /api/v1/jobs/${ID}`]: () => new Response(null, { status: 204 }),
     });
     const user = userEvent.setup();
     render(<Toaster />);

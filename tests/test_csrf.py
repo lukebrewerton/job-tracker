@@ -24,7 +24,7 @@ def client(static_dir: Path) -> Iterator[TestClient]:
     # An unauthenticated test-only endpoint, so "allowed through" is a plain 200.
     router = APIRouter()
 
-    @router.api_route("/api/_csrf_probe", methods=["POST", "PUT", "PATCH", "DELETE", "GET"])
+    @router.api_route("/api/v1/_csrf_probe", methods=["POST", "PUT", "PATCH", "DELETE", "GET"])
     async def probe() -> dict[str, bool]:
         return {"ok": True}
 
@@ -47,7 +47,9 @@ JSON = {"content-type": "application/json"}
     ],
 )
 def test_foreign_origin_writes_are_refused(client: TestClient, method: str, origin: str) -> None:
-    resp = client.request(method, "/api/_csrf_probe", headers={**JSON, "origin": origin}, json={})
+    resp = client.request(
+        method, "/api/v1/_csrf_probe", headers={**JSON, "origin": origin}, json={}
+    )
     assert resp.status_code == 403
     assert resp.json() == {"detail": "Cross-origin request refused"}
 
@@ -66,12 +68,12 @@ def test_same_origin_or_originless_writes_are_allowed(
     client: TestClient, method: str, origin: str | None
 ) -> None:
     headers = {**JSON, **({"origin": origin} if origin else {})}
-    resp = client.request(method, "/api/_csrf_probe", headers=headers, json={})
+    resp = client.request(method, "/api/v1/_csrf_probe", headers=headers, json={})
     assert resp.status_code == 200
 
 
 def test_reads_are_never_blocked_by_origin(client: TestClient) -> None:
-    resp = client.get("/api/_csrf_probe", headers={"origin": "https://evil.test"})
+    resp = client.get("/api/v1/_csrf_probe", headers={"origin": "https://evil.test"})
     assert resp.status_code == 200
 
 
@@ -82,20 +84,20 @@ def test_reads_are_never_blocked_by_origin(client: TestClient) -> None:
 )
 def test_api_writes_must_be_json(client: TestClient, method: str, content_type: str | None) -> None:
     headers = {"content-type": content_type} if content_type else {}
-    resp = client.request(method, "/api/_csrf_probe", headers=headers, content=b"a=1")
+    resp = client.request(method, "/api/v1/_csrf_probe", headers=headers, content=b"a=1")
     assert resp.status_code == 415
 
 
 def test_json_with_charset_is_fine(client: TestClient) -> None:
     headers = {"content-type": "application/json; charset=utf-8"}
-    resp = client.post("/api/_csrf_probe", headers=headers, content=b"{}")
+    resp = client.post("/api/v1/_csrf_probe", headers=headers, content=b"{}")
     assert resp.status_code == 200
 
 
 def test_bodiless_delete_needs_no_content_type(client: TestClient) -> None:
     # fetch(url, {method: "DELETE"}) sends no Content-Type; a cross-origin DELETE already
     # needs a CORS preflight, so it isn't a form-submittable threat.
-    assert client.delete("/api/_csrf_probe").status_code == 200
+    assert client.delete("/api/v1/_csrf_probe").status_code == 200
 
 
 def test_logout_from_a_foreign_origin_is_refused(client: TestClient) -> None:

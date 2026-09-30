@@ -6,11 +6,11 @@ import type { components, paths } from "./schema";
 export type Job = components["schemas"]["JobOut"];
 export type JobPage = components["schemas"]["JobPage"];
 export type JobListQuery = NonNullable<
-  paths["/api/jobs"]["get"]["parameters"]["query"]
+  paths["/api/v1/jobs"]["get"]["parameters"]["query"]
 >;
 
 export function listJobs(query: JobListQuery): Promise<JobPage> {
-  return unwrap(api.GET("/api/jobs", { params: { query } }));
+  return unwrap(api.GET("/api/v1/jobs", { params: { query } }));
 }
 
 export type JobCreate = components["schemas"]["JobCreate"];
@@ -20,7 +20,7 @@ export type CompanyMatch = components["schemas"]["CompanyMatch"];
 export type CreateResult = { created: Job } | { existingId: string };
 
 export async function createJob(body: JobCreate): Promise<CreateResult> {
-  const { data, error, response } = await api.POST("/api/jobs", { body });
+  const { data, error, response } = await api.POST("/api/v1/jobs", { body });
   if (response.status === 409 && error && "existing_id" in error) {
     return { existingId: error.existing_id };
   }
@@ -30,7 +30,7 @@ export async function createJob(body: JobCreate): Promise<CreateResult> {
 
 export async function companyMatches(company: string): Promise<CompanyMatch[]> {
   const result = await unwrap(
-    api.GET("/api/jobs/company-matches", { params: { query: { company } } }),
+    api.GET("/api/v1/jobs/company-matches", { params: { query: { company } } }),
   );
   return result.companies;
 }
@@ -41,7 +41,7 @@ export type JobStatusValue = components["schemas"]["JobStatus"];
 
 export function getJob(id: string): Promise<Job> {
   return unwrap(
-    api.GET("/api/jobs/{job_id}", { params: { path: { job_id: id } } }),
+    api.GET("/api/v1/jobs/{job_id}", { params: { path: { job_id: id } } }),
   );
 }
 
@@ -52,7 +52,7 @@ export async function updateJob(
   id: string,
   changes: JobUpdate,
 ): Promise<UpdateResult> {
-  const { data, error, response } = await api.PATCH("/api/jobs/{job_id}", {
+  const { data, error, response } = await api.PATCH("/api/v1/jobs/{job_id}", {
     params: { path: { job_id: id } },
     body: changes,
   });
@@ -65,7 +65,7 @@ export async function updateJob(
 
 export function changeStatus(id: string, status: JobStatusValue): Promise<Job> {
   return unwrap(
-    api.POST("/api/jobs/{job_id}/status", {
+    api.POST("/api/v1/jobs/{job_id}/status", {
       params: { path: { job_id: id } },
       body: { status },
     }),
@@ -79,17 +79,21 @@ export function bulkChangeStatus(
   ids: string[],
   status: JobStatusValue,
 ): Promise<BulkStatusResult> {
-  return unwrap(api.POST("/api/jobs/bulk-status", { body: { ids, status } }));
+  return unwrap(
+    api.POST("/api/v1/jobs/bulk-status", { body: { ids, status } }),
+  );
 }
 
 export function jobHistory(id: string): Promise<HistoryEntry[]> {
   return unwrap(
-    api.GET("/api/jobs/{job_id}/history", { params: { path: { job_id: id } } }),
+    api.GET("/api/v1/jobs/{job_id}/history", {
+      params: { path: { job_id: id } },
+    }),
   );
 }
 
 export async function deleteJob(id: string): Promise<void> {
   await expectNoContent(
-    api.DELETE("/api/jobs/{job_id}", { params: { path: { job_id: id } } }),
+    api.DELETE("/api/v1/jobs/{job_id}", { params: { path: { job_id: id } } }),
   );
 }

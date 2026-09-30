@@ -31,7 +31,7 @@ def test_other_host_is_redirected_with_path_and_query(foreign_client: TestClient
 
 def test_other_host_redirect_preserves_method(foreign_client: TestClient) -> None:
     # 308 (not 301/302) so a POST stays a POST after the redirect.
-    resp = foreign_client.post("/api/anything")
+    resp = foreign_client.post("/api/v1/anything")
     assert resp.status_code == 308
 
 

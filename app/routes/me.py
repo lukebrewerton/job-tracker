@@ -1,6 +1,6 @@
 # Copyright (C) 2026 Luke Brewerton
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""/api/me: the signed-in user, and their time zone.
+"""/api/v1/me: the signed-in user, and their time zone.
 
 The frontend reads the browser's zone on load and, if it differs from the stored one,
 saves it here: there is no setting to manage. Only ever touches the current user's row.

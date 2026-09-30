@@ -11,11 +11,11 @@ describe("a 401 from the API", () => {
   it("sends you to sign in, then back to the exact path and query", async () => {
     window.history.replaceState(null, "", "/jobs?status=all&q=acme%20ltd");
     mockApi({
-      "GET /api/jobs": () => json({ detail: "Not authenticated" }, 401),
+      "GET /api/v1/jobs": () => json({ detail: "Not authenticated" }, 401),
     });
     const assign = vi.spyOn(navigation, "assign").mockImplementation(() => {});
 
-    await api.GET("/api/jobs", {});
+    await api.GET("/api/v1/jobs", {});
 
     expect(assign).toHaveBeenCalledWith(
       `/auth/login?next=${encodeURIComponent("/jobs?status=all&q=acme%20ltd")}`,
@@ -25,21 +25,21 @@ describe("a 401 from the API", () => {
   it("doesn't redirect on the public front page, where it just means signed out", async () => {
     window.history.replaceState(null, "", "/");
     mockApi({
-      "GET /api/me": () => json({ detail: "Not authenticated" }, 401),
+      "GET /api/v1/me": () => json({ detail: "Not authenticated" }, 401),
     });
     const assign = vi.spyOn(navigation, "assign").mockImplementation(() => {});
 
-    await api.GET("/api/me");
+    await api.GET("/api/v1/me");
 
     expect(assign).not.toHaveBeenCalled();
   });
 
   it("isn't triggered by other errors", async () => {
     window.history.replaceState(null, "", "/jobs");
-    mockApi({ "GET /api/jobs": () => json({ detail: "Nope" }, 403) });
+    mockApi({ "GET /api/v1/jobs": () => json({ detail: "Nope" }, 403) });
     const assign = vi.spyOn(navigation, "assign").mockImplementation(() => {});
 
-    await api.GET("/api/jobs", {});
+    await api.GET("/api/v1/jobs", {});
 
     expect(assign).not.toHaveBeenCalled();
   });
@@ -61,9 +61,9 @@ describe("loginUrl", () => {
 describe("unwrap", () => {
   it("returns the data of a successful response", async () => {
     mockApi({
-      "GET /api/me": () => json({ email: "a@b.test", timezone: "UTC" }),
+      "GET /api/v1/me": () => json({ email: "a@b.test", timezone: "UTC" }),
     });
-    await expect(unwrap(api.GET("/api/me"))).resolves.toEqual({
+    await expect(unwrap(api.GET("/api/v1/me"))).resolves.toEqual({
       email: "a@b.test",
       timezone: "UTC",
     });
@@ -72,7 +72,7 @@ describe("unwrap", () => {
   it("throws an ApiError carrying the API's message", async () => {
     window.history.replaceState(null, "", "/jobs");
     mockApi({
-      "GET /api/jobs": () =>
+      "GET /api/v1/jobs": () =>
         json(
           {
             detail: [
@@ -83,7 +83,7 @@ describe("unwrap", () => {
         ),
     });
     const error = await unwrap(
-      api.GET("/api/jobs", { params: { query: { q: "a" } } }),
+      api.GET("/api/v1/jobs", { params: { query: { q: "a" } } }),
     ).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(ApiError);
     expect(error).toMatchObject({

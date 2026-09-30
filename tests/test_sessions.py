@@ -28,7 +28,7 @@ NINETY_DAYS = 90 * 24 * 60 * 60
 
 def _with_probe_routes(app: FastAPI) -> FastAPI:
     """Authenticated test-only routes, registered ahead of the SPA catch-all."""
-    router = APIRouter(prefix="/api/_probe")
+    router = APIRouter(prefix="/api/v1/_probe")
 
     @router.get("/whoami")
     async def whoami(user: CurrentUserDep, db: UserDbSession) -> dict[str, str | None]:
@@ -96,7 +96,7 @@ async def _session_count(db_engine: AsyncEngine, user_id: uuid.UUID) -> int:
 
 def _whoami(client: TestClient, token: str | None) -> httpx2.Response:
     headers = {"cookie": f"{COOKIE_NAME}={token}"} if token else {}
-    return client.get("/api/_probe/whoami", headers=headers)
+    return client.get("/api/v1/_probe/whoami", headers=headers)
 
 
 def _session_cookie(resp: httpx2.Response) -> SimpleCookie:
@@ -201,7 +201,7 @@ def test_no_cookie_is_unauthenticated(client: TestClient) -> None:
 
 @pytest.mark.parametrize("token", ["not-a-real-token", "", "x" * 500])
 def test_unknown_or_tampered_token_is_rejected_and_cleared(client: TestClient, token: str) -> None:
-    resp = client.get("/api/_probe/whoami", headers={"cookie": f"{COOKIE_NAME}={token}x"})
+    resp = client.get("/api/v1/_probe/whoami", headers={"cookie": f"{COOKIE_NAME}={token}x"})
     assert resp.status_code == 401
     assert _clears_cookie(resp)
 

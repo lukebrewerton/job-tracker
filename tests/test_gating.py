@@ -142,7 +142,7 @@ def test_public_paths_need_no_session(client: TestClient, path: str) -> None:
 
 
 def test_unknown_api_path_is_a_json_404_not_a_sign_in_redirect(client: TestClient) -> None:
-    resp = client.get("/api/does-not-exist")
+    resp = client.get("/api/v1/does-not-exist")
     assert resp.status_code == 404
     assert resp.headers["content-type"] == "application/json"
 
@@ -150,7 +150,7 @@ def test_unknown_api_path_is_a_json_404_not_a_sign_in_redirect(client: TestClien
 # --- API docs: development only -------------------------------------------------------------
 
 
-@pytest.mark.parametrize("path", ["/api/docs", "/api/openapi.json"])
+@pytest.mark.parametrize("path", ["/api/v1/docs", "/api/v1/openapi.json"])
 def test_api_docs_are_off_in_production(static_dir: Path, path: str) -> None:
     settings = make_settings(static_dir).model_copy(update={"environment": "production"})
     with TestClient(create_app(settings), base_url=PUBLIC_BASE_URL) as c:
@@ -162,8 +162,8 @@ def test_api_docs_are_off_in_production(static_dir: Path, path: str) -> None:
 def test_api_docs_are_on_in_development(static_dir: Path) -> None:
     settings = make_settings(static_dir).model_copy(update={"environment": "development"})
     with TestClient(create_app(settings), base_url=PUBLIC_BASE_URL) as c:
-        assert c.get("/api/docs").status_code == 200
-        assert c.get("/api/openapi.json").json()["info"]["title"] == "Job Tracker"
+        assert c.get("/api/v1/docs").status_code == 200
+        assert c.get("/api/v1/openapi.json").json()["info"]["title"] == "Job Tracker"
 
 
 def test_environment_defaults_to_production(static_dir: Path) -> None:
