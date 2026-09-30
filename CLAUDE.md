@@ -87,6 +87,9 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
   `docker-build`, `secrets-scan` — each calls the matching `make` target. Job names are
   required status checks: don't rename them without updating the ruleset.
 - **Never use `pull_request_target`**, and never let CI reference secrets.
+  **One exception:** `backup.yml` (schedule/manual only, never PR-triggered; secrets in
+  the `main`-only `backup` Environment; no checkout, no token permissions). Nothing else
+  may reference secrets.
 - **Deploys:** CI also runs on push to `main`, and Render (`render.yaml`,
   `autoDeployTrigger: checksPass`) deploys a `main` commit only once every check on it
   passes. No deploy hook or secret exists. Render's health check is `/healthz` — never
@@ -104,6 +107,8 @@ Targets come in pairs per stack (`-api`, `-web`); the bare name runs both.
 - `make build-web` — build the frontend into `frontend/dist`
 - `make up` / `make down` — local Postgres 18 in Docker (loopback only); `make db-reset` wipes it
 - `make migrate` / `make migration m="…"` — apply migrations / autogenerate one from the models
+- `make restore FILE=… KEY=…` — restore an encrypted backup into a separate local database
+  (see README → Backups)
 - `make image` / `make image-run` — build and run the production image locally (uses `.env`)
 - `make lint` — ruff + mypy, and oxlint (type-aware, incl. type-check) + prettier --check,
   plus `openapi-check` / `types-check` (the contract files are current)

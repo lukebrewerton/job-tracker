@@ -1,6 +1,6 @@
 .PHONY: help sync sync-api sync-web lock dev dev-web build-web up down db-reset image image-run \
 	lint lint-api lint-web format format-api format-web test test-api test-web \
-	secrets-scan hooks hooks-off migrate migration seed openapi openapi-check types types-check
+	secrets-scan hooks hooks-off migrate migration restore seed openapi openapi-check types types-check
 
 WEB := frontend
 
@@ -51,6 +51,21 @@ migrate: ## Apply database migrations (alembic upgrade head) using DATABASE_URL 
 migration: ## Autogenerate a migration from the models: make migration m="add jobs table"
 	@test -n "$(m)" || (echo 'Usage: make migration m="describe the change"' && exit 1)
 	uv run alembic revision --autogenerate -m "$(m)"
+
+RESTORE_DB ?= jobtracker_restore
+
+restore: ## Restore an encrypted backup into its own local database: make restore FILE=… KEY=…
+	@test -n "$(FILE)" -a -n "$(KEY)" || { \
+		echo "Usage: make restore FILE=job-tracker-….dump.age KEY=path/to/age-key.txt [RESTORE_DB=$(RESTORE_DB)]"; \
+		exit 1; }
+	@command -v age >/dev/null || { echo "Needs age: brew install age"; exit 1; }
+	@# Into a separate database (recreated each time), never the one the app uses.
+	age --decrypt --identity "$(KEY)" "$(FILE)" | docker compose exec -T -e RESTORE_DB="$(RESTORE_DB)" postgres sh -euc '\
+		test "$$RESTORE_DB" != "$$POSTGRES_DB" || { echo "Refusing to restore over $$POSTGRES_DB"; exit 1; }; \
+		dropdb --if-exists -U "$$POSTGRES_USER" "$$RESTORE_DB"; \
+		createdb -U "$$POSTGRES_USER" "$$RESTORE_DB"; \
+		pg_restore --exit-on-error --no-owner --no-privileges -U "$$POSTGRES_USER" -d "$$RESTORE_DB"; \
+		psql -AtX -U "$$POSTGRES_USER" -d "$$RESTORE_DB" -c "SELECT count(*) || '"' jobs restored into '"' || current_database() FROM jobs"'
 
 # --- Production image ------------------------------------------------------------
 

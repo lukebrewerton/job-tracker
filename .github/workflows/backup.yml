@@ -1,0 +1,153 @@
+# Copyright (C) 2026 Luke Brewerton
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Nightly database backup: pg_dump → proven restorable → encrypted → S3-compatible storage.
+#
+# OFF UNLESS CONFIGURED: the job is skipped unless the repository variable BACKUP_BUCKET is
+# set, so an instance that doesn't want backups (or a fork) needs to do nothing. Setup,
+# providers, retention and restoring: README → Backups.
+#
+# This is the ONE workflow allowed to reference secrets (CLAUDE.md), and it is fenced off:
+#   - Triggers: schedule and manual only. Never pull_request/pull_request_target, so no
+#     PR code — and nothing from a fork — ever runs here.
+#   - The secrets live in the `backup` GitHub Environment, which only `main` may deploy
+#     to; the job also refuses to run on any other ref.
+#   - No checkout and no token permissions: the job runs only the commands below.
+#   - The database credential is a read-only role (jobtracker_backup). Its only extra
+#     power is BYPASSRLS, without which pg_dump can't read row-level-secured tables.
+#   - Nothing leaves the runner unencrypted: the dump is encrypted with age to a public
+#     key whose private half never touches GitHub.
+#   - No third-party actions: the Postgres image (pinned by digest, the same as
+#     compose.yaml), age from Ubuntu's archive, and the runner's own AWS CLI.
+
+name: Backup
+
+on:
+  schedule:
+    # Daily, 02:17 UTC: 03:17 in UK summer time, 02:17 in winter. Off the hour, when
+    # GitHub's scheduler is busiest and most likely to delay or drop runs.
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    if: vars.BACKUP_BUCKET != '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: backup
+    permissions: {}
+    # A throwaway database to prove every dump restores before it's kept. The
+    # credentials exist only inside this job: not secrets.
+    services:
+      restore:
+        image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+        env:
+          POSTGRES_USER: restore
+          POSTGRES_PASSWORD: restore-check-only
+          POSTGRES_DB: restore
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U restore -d restore"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      PG_IMAGE: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+      RESTORE_URL: postgresql://restore:restore-check-only@localhost:5432/restore
+      # Exact row counts for every table, for comparing source and restore.
+      COUNT_ROWS: >-
+        SELECT table_name || ' ' || (xpath('/row/n/text()', query_to_xml(format('SELECT
+        count(*) AS n FROM %I.%I', table_schema, table_name), false, true, '')))[1]::text
+        FROM information_schema.tables WHERE table_schema = 'public' AND table_type =
+        'BASE TABLE' AND table_name <> 'sessions' ORDER BY table_name
+    steps:
+      - name: Install age
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq age
+          age --version
+
+      - name: Dump the database
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        # Custom format (restorable table by table), zstd-compressed before encryption:
+        # encrypted data is random and doesn't compress. Session rows are left out:
+        # they're short-lived sign-ins, and restoring them could revive old sessions.
+        run: |
+          set -euo pipefail
+          docker run --rm -e BACKUP_DATABASE_URL "$PG_IMAGE" sh -c '
+            pg_dump --format=custom --compress=zstd:9 --no-owner --no-privileges \
+              --exclude-table-data=sessions --dbname="$BACKUP_DATABASE_URL"' > backup.dump
+          docker run --rm -e BACKUP_DATABASE_URL -e COUNT_ROWS "$PG_IMAGE" sh -c '
+            psql "$BACKUP_DATABASE_URL" -AtX -v ON_ERROR_STOP=1 -c "$COUNT_ROWS"' > source-counts.txt
+
+      - name: Prove it restores
+        run: |
+          set -euo pipefail
+          docker run --rm --network host -v "$PWD:/work:ro" -e RESTORE_URL "$PG_IMAGE" sh -c '
+            pg_restore --exit-on-error --no-owner --no-privileges \
+              --dbname="$RESTORE_URL" /work/backup.dump'
+          docker run --rm --network host -e RESTORE_URL -e COUNT_ROWS "$PG_IMAGE" sh -c '
+            psql "$RESTORE_URL" -AtX -v ON_ERROR_STOP=1 -c "$COUNT_ROWS"' > restored-counts.txt
+          if [ ! -s restored-counts.txt ]; then
+            echo "::error::The restore produced no tables."
+            exit 1
+          fi
+          # A write between the dump and the count query can differ by a row or two:
+          # worth a look, not worth losing the night's backup over.
+          if ! diff -u source-counts.txt restored-counts.txt; then
+            echo "::warning::Row counts differ between the database and the restored dump."
+          fi
+
+      - name: Encrypt
+        env:
+          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+        run: |
+          set -euo pipefail
+          name="job-tracker-$(date -u +%Y-%m-%dT%H%MZ).dump.age"
+          age --encrypt --recipient "$BACKUP_AGE_RECIPIENT" --output "$name" backup.dump
+          rm backup.dump
+          echo "BACKUP_FILE=$name" >> "$GITHUB_ENV"
+
+      - name: Upload
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.BACKUP_S3_REGION || 'auto' }}
+          # Only checksum when the API requires it: R2 and some other S3-compatible
+          # stores reject the AWS CLI's newer default checksums.
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          BACKUP_BUCKET: ${{ vars.BACKUP_BUCKET }}
+          BACKUP_S3_ENDPOINT: ${{ vars.BACKUP_S3_ENDPOINT }}
+        # daily/ every night; monthly/ on the 1st too. How long each is kept is set on the
+        # bucket (lifecycle rules), not here.
+        run: |
+          set -euo pipefail
+          endpoint=()
+          if [ -n "$BACKUP_S3_ENDPOINT" ]; then endpoint=(--endpoint-url "$BACKUP_S3_ENDPOINT"); fi
+          aws s3 cp "${endpoint[@]}" --no-progress "$BACKUP_FILE" "s3://$BACKUP_BUCKET/daily/$BACKUP_FILE"
+          if [ "$(date -u +%d)" = "01" ]; then
+            aws s3 cp "${endpoint[@]}" --no-progress "$BACKUP_FILE" "s3://$BACKUP_BUCKET/monthly/$BACKUP_FILE"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Backup"
+            if [ -n "${BACKUP_FILE:-}" ] && [ -f "$BACKUP_FILE" ]; then
+              echo "- File: \`$BACKUP_FILE\` ($(du -h "$BACKUP_FILE" | cut -f1), compressed and encrypted)"
+            fi
+            if [ -s restored-counts.txt ]; then
+              echo "- Rows restored, by table:"
+              sed 's/^\([^ ]*\) \(.*\)$/  - \1: \2/' restored-counts.txt
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
