@@ -51,7 +51,7 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
   then `make types`, and commit both (CI fails if either is stale). `frontend/codegen/` is
   a separate package because the generator needs TypeScript 5's compiler API (the app is
   on TS 7).
-- **API versions** (README → API versions and releases): within `/api/v1`, changes are
+- **API versions** (manual: API → Versions and releases): within `/api/v1`, changes are
   **additive only** (new endpoints, new optional request fields, new response fields). CI
   runs `oasdiff breaking` on every PR against its base (`make api-breaking`); a deliberate
   break needs the `breaking-api` label, and once a separately released client exists it
@@ -89,6 +89,10 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
   Files that can't hold a comment (JSON, lockfiles, generated files, docs, some dotfiles)
   are listed by name in `REUSE.toml` instead. `make reuse-lint` (part of `make lint`, and
   in CI) fails on any file with neither.
+- **The manual** (https://job-tracker-docs.job-finder.dev) is in `docs/`: Markdown pages built with
+  Starlight (a separate npm package, like `frontend/codegen/`). A change to how the app is
+  used, set up or configured updates the manual **in the same PR**. Broken internal links
+  fail the build. The README is the front page and links into the manual.
 - **British spelling** in prose, comments and UI copy.
 - The entity is a **job** everywhere (table, API, routes) — never "application".
 
@@ -105,7 +109,9 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
   the `main`-only `backup` Environment; no checkout, no token permissions). Nothing else
   may reference secrets. `release.yml` stores no secret but is the only workflow with
   write access (`contents: write`, its own `GITHUB_TOKEN`, push to `main` only) — to
-  create a version's tag and release.
+  create a version's tag and release. `docs.yml` deploys the manual to GitHub Pages from
+  `main` only, with `pages: write` and `id-token: write` (GitHub's Pages deployment); its
+  PR runs only build.
 - **Deploys:** CI also runs on push to `main`, and Render (`render.yaml`,
   `autoDeployTrigger: checksPass`) deploys a `main` commit only once every check on it
   passes. No deploy hook or secret exists. Render's health check is `/healthz` — never
@@ -124,7 +130,7 @@ Targets come in pairs per stack (`-api`, `-web`); the bare name runs both.
 - `make up` / `make down` — local Postgres 18 in Docker (loopback only); `make db-reset` wipes it
 - `make migrate` / `make migration m="…"` — apply migrations / autogenerate one from the models
 - `make restore FILE=… KEY=…` — restore an encrypted backup into a separate local database
-  (see README → Backups)
+  (see the manual: Self-hosting → Backups)
 - `make image` / `make image-run` — build and run the production image locally (uses `.env`)
 - `make lint` — ruff + mypy, and oxlint (type-aware, incl. type-check) + prettier --check,
   plus `openapi-check` / `types-check` (the contract files are current)
@@ -132,6 +138,8 @@ Targets come in pairs per stack (`-api`, `-web`); the bare name runs both.
   types from `openapi.json`
 - `make format` — ruff fix/format and prettier --write
 - `make secrets-scan` — gitleaks over the full git history (pinned Docker image, same as CI)
+- `make sync-docs` / `make docs` / `make docs-build` — install, preview (http://localhost:4321)
+  and build the manual (the build fails on broken links)
 - `make reuse-lint` — every file has copyright and licence information (REUSE; pinned
   Docker image, same as CI)
 - `make version-check` — the three version numbers agree, and MAJOR = the newest API version

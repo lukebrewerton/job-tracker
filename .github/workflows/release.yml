@@ -5,8 +5,8 @@
 # step with app/__init__.py and frontend/package.json by `make version-check`) has no
 # release yet gets a tag `v<version>` and a GitHub Release, with that commit's
 # openapi.json attached, so a separately released client can generate from a pinned
-# API. Pushes that don't change the version release nothing. Versioning: README → API
-# versions and releases.
+# API. Pushes that don't change the version release nothing. Versioning: the manual,
+# https://job-tracker-docs.job-finder.dev/api/versions-and-releases/.
 #
 # Security (CLAUDE.md): the only workflow with write access, and only to create the tag
 # and release, via the job's own short-lived GITHUB_TOKEN: no stored secret. It runs

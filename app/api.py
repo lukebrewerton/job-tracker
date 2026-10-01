@@ -7,7 +7,7 @@ without a valid session every /api route returns 401 before its handler runs. Ro
 take `UserDbSession` for database access (row-level security scoped to that user).
 Tests enumerate every /api route to check both the 401 and cross-user isolation.
 
-Versioning (README → API versions): within a version, changes are additive only. A
+Versioning (manual: API → Versions and releases): within a version, changes are additive only. A
 breaking change goes into a new version served alongside the old one, which keeps
 working for 3 months, and the app's major version moves with it.
 """
