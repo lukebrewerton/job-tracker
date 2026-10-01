@@ -39,7 +39,10 @@ def static_dir(tmp_path: Path) -> Path:
     """A minimal stand-in for Vite's dist/ output."""
     (tmp_path / "assets").mkdir()
     (tmp_path / "assets" / "index-abc123.js").write_text("console.log('app')")
-    (tmp_path / "index.html").write_text("<!doctype html><div id=root></div>")
+    (tmp_path / "index.html").write_text(
+        "<!doctype html><html><head><title>Job Tracker</title></head>"
+        "<body><div id=root></div></body></html>"
+    )
     (tmp_path / "favicon.ico").write_bytes(b"\x00\x00\x01\x00")
     return tmp_path
 

@@ -5,6 +5,7 @@ import { Link, NavLink, Outlet } from "react-router";
 import { toast } from "sonner";
 
 import { logout, useMe, useTimezoneSync } from "../api/me";
+import { aboutLinks } from "../lib/about";
 import { NAV_LINKS, SIGN_IN_URL } from "../nav";
 
 // At least 44px tall: comfortable touch targets. The box has no display of its own, so
@@ -29,6 +30,28 @@ function useLogout() {
       }
     },
   };
+}
+
+/** On every page: where to find out more, and the source code (the app is AGPL). */
+function Footer() {
+  const { docsUrl, sourceUrl } = aboutLinks();
+  if (!docsUrl && !sourceUrl) return null;
+  const link = "underline-offset-2 hover:text-slate-700 hover:underline";
+  return (
+    <footer className="mx-auto max-w-6xl px-4 pt-4 pb-8 text-center text-sm text-slate-500">
+      {docsUrl && (
+        <a href={docsUrl} className={link}>
+          About Job Tracker
+        </a>
+      )}
+      {docsUrl && sourceUrl && <span aria-hidden="true"> · </span>}
+      {sourceUrl && (
+        <a href={sourceUrl} className={link}>
+          Source code
+        </a>
+      )}
+    </footer>
+  );
 }
 
 export function Layout() {
@@ -184,6 +207,8 @@ export function Layout() {
       <main className="mx-auto max-w-6xl px-4 py-6">
         <Outlet />
       </main>
+
+      <Footer />
     </div>
   );
 }

@@ -181,6 +181,56 @@ describe("the front page", () => {
   });
 });
 
+describe("the footer", () => {
+  afterEach(() => {
+    document.head
+      .querySelectorAll('meta[name^="jt-"]')
+      .forEach((tag) => tag.remove());
+  });
+
+  function serveLinks() {
+    for (const [name, content] of [
+      ["jt-docs-url", "https://docs.example.test/"],
+      ["jt-source-url", "https://git.example.test/fork"],
+    ]) {
+      const tag = document.createElement("meta");
+      tag.name = name!;
+      tag.content = content!;
+      document.head.append(tag);
+    }
+  }
+
+  it.each([
+    ["signed in, on any page", "/dashboard", true],
+    ["signed out, on the front page", "/", false],
+  ])(
+    "links to the manual and the source code: %s",
+    async (_, path, isSignedIn) => {
+      serveLinks();
+      if (isSignedIn) signedIn();
+      else
+        mockApi({
+          "GET /api/v1/me": () => json({ detail: "Not authenticated" }, 401),
+        });
+      renderApp(path);
+      const footer = await screen.findByRole("contentinfo");
+      expect(
+        within(footer).getByRole("link", { name: "About Job Tracker" }),
+      ).toHaveAttribute("href", "https://docs.example.test/");
+      expect(
+        within(footer).getByRole("link", { name: "Source code" }),
+      ).toHaveAttribute("href", "https://git.example.test/fork");
+    },
+  );
+
+  it("is left out when the page wasn't served by the app", async () => {
+    signedIn();
+    renderApp("/dashboard");
+    await screen.findByText(ME.email);
+    expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
+  });
+});
+
 describe("routes", () => {
   it("shows a 404 page for an unknown address", async () => {
     signedIn();
