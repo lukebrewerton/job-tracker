@@ -2,6 +2,10 @@
 title: Job Tracker
 description: A self-hostable job application tracker, from saved to offer.
 template: splash
+# The tab would otherwise read "Job Tracker | Job Tracker" (page title | site title).
+head:
+  - tag: title
+    content: Job Tracker
 hero:
   tagline: Track every job you apply for, from saved to offer, and see at a glance what needs following up.
   image:

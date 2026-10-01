@@ -6,6 +6,8 @@ description: Changing a job's status, editing its details, its history and delet
 Select a job anywhere in the app to open its page. The header shows its company, role,
 status and, if it needs attention, why. **View job posting** opens its link.
 
+![A job's page: its status, details, interviews and status history](../../../assets/screenshots/job-page.png)
+
 ## Changing the status
 
 Choose the new status from **Status**. It changes straight away, and the change is added to

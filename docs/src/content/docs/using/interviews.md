@@ -14,6 +14,8 @@ Interviews belong to a job: add them on the [job's page](/using/job-page/), unde
 - **Mode:** remote, in person or phone.
 - **Notes.**
 
+![Adding an interview on a job's page](../../../assets/screenshots/add-interview.png)
+
 After adding an interview to a job that's still **Saved** or **Applied**, Job Tracker
 offers to move it to **Interviewing**.
 
@@ -22,6 +24,8 @@ Each interview can be edited, or deleted after confirming. Past interviews are m
 ## The interviews page
 
 **Interviews** in the header lists every interview across your jobs, in three groups:
+
+![The interviews page: upcoming, not yet scheduled, and past](../../../assets/screenshots/interviews.png)
 
 - **Upcoming:** soonest first, with "Today" and "Tomorrow" for the next two days.
 - **Not yet scheduled:** interviews without a date, on jobs that are still active.

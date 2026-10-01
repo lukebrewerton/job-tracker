@@ -6,6 +6,8 @@ description: Filtering, searching, sorting and paging through your jobs.
 **Jobs** lists every job you've added. On a computer it's a table; on a phone, a list of
 cards.
 
+![The jobs list: status filters with counts, and a highlighted job that needs attention](../../../assets/screenshots/jobs.png)
+
 ## Filters
 
 The buttons above the list filter by status, each with its count:

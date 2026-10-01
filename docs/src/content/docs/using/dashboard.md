@@ -5,6 +5,8 @@ description: Counts, the jobs that need attention, and your next interviews.
 
 The dashboard is your starting point: what you have on, and what needs doing.
 
+![The dashboard: counts by status, the No response? list and upcoming interviews](../../../assets/screenshots/dashboard.png)
+
 ## The counts
 
 Tiles across the top count your jobs by status: **Active** (saved, applied, interviewing

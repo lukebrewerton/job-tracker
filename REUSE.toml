@@ -51,6 +51,8 @@ path = [
   # Documentation. The manual's pages (Markdown/MDX, whose front matter can't take a
   # comment) are all docs, so a glob is fine for that folder alone.
   "docs/src/content/docs/**",
+  # Screenshots of the app (taken with sample data)
+  "docs/src/assets/screenshots/*.png",
   "README.md",
   "CLAUDE.md",
   "CONTRIBUTING.md",
