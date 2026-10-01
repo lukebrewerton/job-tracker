@@ -1,0 +1,45 @@
+---
+title: Getting started
+description: Signing in, finding your way around, and installing Job Tracker on your phone.
+---
+
+Job Tracker keeps track of the jobs you're interested in, from the moment you save one to
+the offer, along with your interviews, and tells you what needs doing next.
+
+## Signing in
+
+Open your instance's address and choose **Sign in**. You sign in with Google, and Google
+asks which account to use, so you can pick the right one if you have several.
+
+Only the email addresses the instance's owner has allowed can sign in (see
+[Configuration](/self-hosting/configuration/)). If yours isn't on the list, you'll see a
+page explaining that, with a button to try a different Google account.
+
+Once you're signed in, the address takes you straight to your [dashboard](/using/dashboard/).
+You stay signed in on that browser until you sign out, or for up to 14 days without using
+it (90 days at most, however much you use it).
+
+## Finding your way around
+
+The header links to the three main pages:
+
+- **[Dashboard](/using/dashboard/):** counts, the jobs that need attention, and your next
+  interviews.
+- **[Jobs](/using/jobs/):** every job, with filters, search and sorting.
+- **[Interviews](/using/interviews/):** every interview, upcoming first.
+
+**New job** [adds a job](/using/adding-a-job/), and **Log out** signs you out. On a phone,
+the links and Log out are under **☰ Menu**.
+
+## Installing it on your phone
+
+Job Tracker can be installed on your home screen like an app. It opens straight to your
+dashboard, without the browser's address bar.
+
+- **Android (Chrome):** open the site, then **⋮ → Add to home screen**.
+- **iPhone or iPad (Safari):** open the site, then **Share → Add to Home Screen**.
+
+## Time zones
+
+Dates and times are shown in your browser's time zone, and "days since" counts use your
+own calendar days. Your time zone is picked up from your browser automatically.

@@ -1,0 +1,16 @@
+{
+  "name": "job-tracker-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.42.3",
+    "astro": "^7.3.4",
+    "sharp": "^0.35.4",
+    "starlight-links-validator": "^0.26.0"
+  }
+}

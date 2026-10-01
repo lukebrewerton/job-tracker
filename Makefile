@@ -4,7 +4,7 @@
 .PHONY: help sync sync-api sync-web lock dev dev-web build-web up down db-reset image image-run \
 	lint lint-api lint-web format format-api format-web test test-api test-web \
 	secrets-scan hooks hooks-off migrate migration restore seed openapi openapi-check types types-check \
-	version-check api-breaking reuse-lint
+	version-check api-breaking reuse-lint sync-docs docs docs-build
 
 WEB := frontend
 
@@ -23,6 +23,9 @@ sync-web: ## Install frontend dependencies (and the type generator's) from their
 	cd $(WEB) && npm ci
 	cd $(WEB)/codegen && npm ci
 
+sync-docs: ## Install the manual's dependencies (docs/) from its lockfile
+	cd docs && npm ci
+
 lock: ## Regenerate uv.lock from pyproject.toml (run after changing Python deps)
 	uv lock
 
@@ -36,6 +39,12 @@ dev-web: ## Run the Vite dev server on http://localhost:5173 (proxies /api, /aut
 
 build-web: ## Build the frontend into frontend/dist
 	cd $(WEB) && npm run build
+
+docs: ## Preview the manual on http://localhost:4321 (live reload)
+	cd docs && npm run dev
+
+docs-build: ## Build the manual into docs/dist, failing on broken links
+	cd docs && npm run build
 
 # --- Local database (Postgres in Docker) ---------------------------------------
 
