@@ -231,3 +231,6 @@ reports/
 # Personal editor and Claude Code settings: never part of the project.
 .vscode/
 .claude/settings.local.json
+
+# macOS Finder metadata
+.DS_Store

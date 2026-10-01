@@ -5,6 +5,8 @@ description: Saving a job, avoiding duplicates, and starting from a posting's li
 
 Select **New job** in the header.
 
+![The new job form, filled in from a posting's link, with a note about jobs already tracked at the same company](../../../assets/screenshots/new-job.png)
+
 ## The form
 
 Only **Company** and **Role** are required. The rest is whatever you have:
