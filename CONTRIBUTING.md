@@ -17,7 +17,7 @@ self-hosted, but genuine contributions are welcome.
 - If you touched the schema, include an Alembic migration.
 - If you added an env var, add it to `.env.example` with a placeholder value.
 - PRs are scanned for secrets (gitleaks). To catch them before you commit, turn on the
-  optional pre-commit hook: `brew install gitleaks && make hooks` (see the README).
+  optional pre-commit hook: `brew install gitleaks && make hooks` (see the manual: https://job-tracker-docs.job-finder.dev/development/secret-scanning/).
 
 ## Copyright and licensing
 

@@ -5,7 +5,7 @@
 #
 # OFF UNLESS CONFIGURED: the job is skipped unless the repository variable BACKUP_BUCKET is
 # set, so an instance that doesn't want backups (or a fork) needs to do nothing. Setup,
-# providers, retention and restoring: README → Backups.
+# providers, retention and restoring: https://job-tracker-docs.job-finder.dev/self-hosting/backups/.
 #
 # This is the ONE workflow allowed to reference secrets (CLAUDE.md), and it is fenced off:
 #   - Triggers: schedule and manual only. Never pull_request/pull_request_target, so no
