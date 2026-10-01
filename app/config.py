@@ -53,6 +53,13 @@ class Settings(BaseSettings):
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
+    # --- About links (the footer on every page) ---
+    # The manual, and the source code. The app is AGPL: anyone using a modified copy over
+    # a network must be offered its source, so a fork that changes the app points
+    # SOURCE_URL at its own repository.
+    docs_url: AnyHttpUrl = AnyHttpUrl("https://job-tracker-docs.job-finder.dev")
+    source_url: AnyHttpUrl = AnyHttpUrl("https://github.com/lukebrewerton/job-tracker")
+
     # Directory holding the built frontend (Vite's `dist/`). The Docker image sets this.
     static_dir: Path = Path("frontend/dist")
 

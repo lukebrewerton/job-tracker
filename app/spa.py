@@ -17,21 +17,39 @@ and where signing in with no `next` ends up). Anywhere else, the
 browser is sent to sign in and brought back to the exact URL afterwards — which is what
 makes the extension's `/jobs/new?url=…` link work on a cold start. Built files stay
 public: they contain no data, and the shell fetches all data from the gated API.
+
+The shell is served with the footer's links (the manual and the source code, from
+DOCS_URL and SOURCE_URL) as `<meta>` tags, so even the signed-out front page has them
+without calling the gated API.
 """
 
+from html import escape
 from pathlib import Path
 from typing import Annotated
 from urllib.parse import quote
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.config import Settings
 from app.sessions import CurrentUser, page_user
 
 RESERVED_PREFIXES = ("api", "auth")
 # Client-side routes served without a session. Only the front page: it holds no data.
 PUBLIC_PAGES = frozenset({""})
+
+
+def with_about_links(html: str, settings: Settings) -> str:
+    """The app shell, with the footer's links as <meta> tags in its <head>."""
+    tags = "".join(
+        f'<meta name="{name}" content="{escape(str(url), quote=True)}">'
+        for name, url in (
+            ("jt-docs-url", settings.docs_url),
+            ("jt-source-url", settings.source_url),
+        )
+    )
+    return html.replace("</head>", tags + "</head>", 1)
 
 
 def mount_spa(app: FastAPI, static_dir: Path) -> None:
@@ -47,7 +65,7 @@ def mount_spa(app: FastAPI, static_dir: Path) -> None:
         path: str,
         request: Request,
         user: Annotated[CurrentUser | None, Depends(page_user)],
-    ) -> FileResponse | RedirectResponse:
+    ) -> FileResponse | HTMLResponse | RedirectResponse:
         if path.split("/", 1)[0] in RESERVED_PREFIXES:
             raise HTTPException(status_code=404)
 
@@ -66,4 +84,7 @@ def mount_spa(app: FastAPI, static_dir: Path) -> None:
 
         if not index.is_file():
             raise HTTPException(status_code=404, detail="Frontend not built")
-        return FileResponse(index, headers={"Cache-Control": "no-cache"})
+        settings: Settings = request.app.state.settings
+        return HTMLResponse(
+            with_about_links(index.read_text(), settings), headers={"Cache-Control": "no-cache"}
+        )

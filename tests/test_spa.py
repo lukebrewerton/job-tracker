@@ -17,6 +17,28 @@ def test_client_routes_get_index_html(client: TestClient, path: str) -> None:
     assert resp.status_code == 200
     assert "<div id=root>" in resp.text
     assert resp.headers["cache-control"] == "no-cache"
+    # With the footer's links: the defaults, as no DOCS_URL or SOURCE_URL is set.
+    assert (
+        '<meta name="jt-docs-url" content="https://job-tracker-docs.job-finder.dev/">' in resp.text
+    )
+    assert (
+        '<meta name="jt-source-url" content="https://github.com/lukebrewerton/job-tracker">'
+        in resp.text
+    )
+
+
+def test_the_footer_links_come_from_the_settings(static_dir: Path) -> None:
+    settings = make_settings(static_dir).model_copy(
+        update={
+            "docs_url": "https://docs.example.test/",
+            "source_url": 'https://git.example.test/me/fork?a=1&b="2"',
+        }
+    )
+    with TestClient(signed_in(create_app(settings)), base_url=PUBLIC_BASE_URL) as c:
+        page = c.get("/jobs").text
+    assert '<meta name="jt-docs-url" content="https://docs.example.test/">' in page
+    # Escaped, so a value can't break out of the attribute.
+    assert 'content="https://git.example.test/me/fork?a=1&amp;b=&quot;2&quot;"' in page
 
 
 def test_assets_are_served(client: TestClient) -> None:

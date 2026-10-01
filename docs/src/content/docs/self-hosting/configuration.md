@@ -30,3 +30,5 @@ printing the values.
 | `NO_RESPONSE_AFTER_DAYS` | `14` | Days without a status change before an applied job is suggested as **No response?** instead. |
 | `ENVIRONMENT` | `production` | `development` turns on the API docs at `/api/v1/docs`. Leave it as `production` anywhere public. |
 | `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING` or `ERROR`. |
+| `DOCS_URL` | `https://job-tracker-docs.job-finder.dev` | The footer's **About Job Tracker** link. |
+| `SOURCE_URL` | `https://github.com/lukebrewerton/job-tracker` | The footer's **Source code** link. The app is AGPL-licensed: if you run a **modified** copy for others, point this at your own repository, so its users can get the source of the version they use. |
