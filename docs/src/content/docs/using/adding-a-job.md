@@ -39,13 +39,14 @@ slash.
 
 ## Starting from a posting
 
-The page can be opened with the posting's link and title already filled in:
+The page can be opened with the posting's link, title and company already filled in:
 
 ```
-https://<your instance>/jobs/new?url=<the posting's link>&title=<the posting's title>
+https://<your instance>/jobs/new?url=<the posting's link>&title=<the posting's title>&company=<the company>
 ```
 
-The title goes into **Role** for you to tidy up. This is how the
+Each part is optional. The title goes into **Role** for you to tidy up, and the company into
+**Company**. This is how the
 [browser extension](/using/browser-extension/) works. If you weren't signed in, you're
 asked to sign in first and then brought back to the filled-in form; anything you'd typed
 before your session expired is kept, too.

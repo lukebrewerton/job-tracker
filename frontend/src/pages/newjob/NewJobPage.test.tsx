@@ -54,9 +54,9 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("pre-filling from the extension", () => {
-  it("puts the raw title in Role, the URL in Job URL, and infers the source", async () => {
+  it("puts the raw title in Role, the URL in Job URL, any company in Company, and infers the source", async () => {
     serve();
-    renderApp(EXTENSION_URL);
+    const { unmount } = renderApp(EXTENSION_URL);
     expect(await screen.findByLabelText("Role *")).toHaveValue(
       "Platform Engineer - Acme | LinkedIn",
     );
@@ -66,6 +66,11 @@ describe("pre-filling from the extension", () => {
     expect(screen.getByLabelText("Source")).toHaveValue("linkedin");
     expect(screen.getByLabelText("Status")).toHaveValue("saved");
     expect(screen.getByLabelText("Company *")).toHaveValue("");
+    unmount();
+
+    // The extension can also send the company (taken from the page's title).
+    renderApp(`${EXTENSION_URL}&company=%20Acme%20`);
+    expect(await screen.findByLabelText("Company *")).toHaveValue("Acme");
   });
 
   it("starts empty without parameters", async () => {

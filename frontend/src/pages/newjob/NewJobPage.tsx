@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Luke Brewerton
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// /jobs/new: the page the browser extension opens, pre-filled from ?url=&title=.
+// /jobs/new: the page the browser extension opens, pre-filled from ?url=&title=&company=.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
@@ -61,11 +61,15 @@ const FIELD_NAMES: ReadonlySet<FieldName> = new Set<FieldName>([
 type FieldErrors = Partial<Record<FieldName | "form", string>>;
 
 /**
- * Which pre-fill a draft belongs to: the decoded `url` and `title`, not the raw query
+ * Which pre-fill a draft belongs to: the decoded `url`, `title` and `company`, not the raw query
  * text, which differs by encoding alone (a sign-in round trip turns "|" into "%7C").
  */
 function prefillKey(params: URLSearchParams): string {
-  return JSON.stringify([params.get("url") ?? "", params.get("title") ?? ""]);
+  return JSON.stringify([
+    params.get("url") ?? "",
+    params.get("title") ?? "",
+    params.get("company") ?? "",
+  ]);
 }
 
 interface Draft {
@@ -77,7 +81,7 @@ interface Draft {
 function prefilled(params: URLSearchParams): Fields {
   const url = (params.get("url") ?? "").trim();
   return {
-    company: "",
+    company: (params.get("company") ?? "").trim(),
     role: (params.get("title") ?? "").trim(),
     url,
     status: "saved",
