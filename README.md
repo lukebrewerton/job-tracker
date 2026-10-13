@@ -11,7 +11,8 @@
 
 A self-hostable job application tracker. Save a job in seconds, track it from "saved"
 through to an offer, and let the dashboard tell you what needs following up, what's still to
-apply for, and what's gone quiet. A companion Firefox extension, coming soon, will make
+apply for, and what's gone quiet. The companion
+[Firefox extension](https://job-tracker-docs.job-finder.dev/using/browser-extension/) makes
 saving a posting a single click.
 
 <p align="center">
