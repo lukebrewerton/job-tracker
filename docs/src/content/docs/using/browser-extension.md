@@ -3,9 +3,10 @@ title: Browser extension
 description: Saving a job from its posting with one click, in Firefox.
 ---
 
-The Firefox extension adds a Job Tracker button to the toolbar. On a job posting, select it
-and your instance's [new job form](/using/adding-a-job/#starting-from-a-posting) opens in a
-new tab, with the posting's link and title already filled in.
+The Firefox extension, Job Tracker Companion, adds a Job Tracker button to the toolbar. On a
+job posting, select it and your instance's
+[new job form](/using/adding-a-job/#starting-from-a-posting) opens in a new tab, with the
+posting's link and title already filled in.
 
 It's a link opener, nothing more: it reads the current tab's address and title when you select
 the button, and asks for no other access. It stores no passwords and never contacts your
@@ -13,24 +14,19 @@ instance itself. The form opens in your browser as usual, signed in as you.
 
 ## Installing it
 
-You need Firefox 142 or newer. The extension is signed by Mozilla but isn't listed on
-addons.mozilla.org, so it's installed from its GitHub releases:
+You need Firefox 142 or newer.
 
-1. Open the [latest release](https://github.com/lukebrewerton/job-tracker-extension/releases/latest)
-   and select the `job-tracker-<version>.xpi` file.
-2. Firefox asks whether to add Job Tracker. Choose **Add**.
+1. Open [Job Tracker Companion](https://addons.mozilla.org/firefox/addon/job-tracker-companion/)
+   on addons.mozilla.org and choose **Add to Firefox**.
+2. To keep the button in view, pin it: open the extensions menu (the jigsaw piece) and choose
+   **Pin to Toolbar** next to Job Tracker Companion.
 
-   If the file downloads instead, open `about:addons`, select the cog, choose
-   **Install Add-on From File…** and pick the file.
-3. To keep the button in view, pin it: open the extensions menu (the jigsaw piece) and choose
-   **Pin to Toolbar** next to Job Tracker.
-
-Firefox keeps the extension up to date from then on.
+Firefox keeps the extension up to date.
 
 ## Setting it up
 
 The first time you select the button, it opens its settings. You can also get there from
-`about:addons` → **Job Tracker** → **Preferences**.
+`about:addons` → **Job Tracker Companion** → **Preferences**.
 
 Enter the address you sign in to Job Tracker at, such as `https://jobs.example.com`, and
 choose **Save**. Only the address itself is kept: anything after it, like `/dashboard`, is
