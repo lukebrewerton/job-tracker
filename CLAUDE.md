@@ -111,7 +111,12 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
   write access (`contents: write`, its own `GITHUB_TOKEN`, push to `main` only) — to
   create a version's tag and release. `docs.yml` deploys the manual to GitHub Pages from
   `main` only, with `pages: write` and `id-token: write` (GitHub's Pages deployment); its
-  PR runs only build.
+  PR runs only build. It also publishes the README's coverage badge (`badges/coverage.json`):
+  its `badge` job (`actions: read`, nothing else) reads the coverage reports of a CI run
+  that passed on a **push to `main`** — never a PR's run, whose reports a fork could forge —
+  and the site is redeployed only when the badge changes.
+- **Test reports:** `test-api` and `test-web` add their counts and coverage to the run's
+  summary page (`app/ci_report.py`) and upload `reports/` as artifacts (14 days).
 - **Deploys:** CI also runs on push to `main`, and Render (`render.yaml`,
   `autoDeployTrigger: checksPass`) deploys a `main` commit only once every check on it
   passes. No deploy hook or secret exists. Render's health check is `/healthz` — never
@@ -147,7 +152,8 @@ Targets come in pairs per stack (`-api`, `-web`); the bare name runs both.
   (`API_BASE=…` to compare elsewhere, `ALLOW_BREAKING=1` to report without failing)
 - `make hooks` / `make hooks-off` — opt in/out of the pre-commit secrets hook (needs
   `brew install gitleaks`)
-- `make test` — pytest and Vitest, each with JUnit + coverage reports in `reports/`
+- `make test` — pytest and Vitest, each with JUnit + coverage reports in `reports/`; fails if
+  line coverage drops below `COVERAGE_FLOOR` (95%, Makefile) on either stack
   (git-ignored)
 
 ## Definition of done (every change)

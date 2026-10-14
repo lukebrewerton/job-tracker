@@ -175,13 +175,19 @@ format-web: ## prettier --write
 
 test: test-api test-web ## Run all test suites
 
-test-api: ## Run the backend tests (pytest) with JUnit + Cobertura reports in reports/api/
+# Line coverage below this fails the tests, locally and in CI (and turns the README's badge
+# red). Kept equal to COVERAGE_FLOOR in app/ci_report.py by a test.
+COVERAGE_FLOOR := 95
+
+test-api: ## Run the backend tests (pytest) with JUnit + Cobertura reports in reports/api/; fails below COVERAGE_FLOOR
 	uv run pytest \
 		--junitxml=reports/api/junit.xml \
-		--cov=app --cov-report=term --cov-report=xml:reports/api/coverage.xml
+		--cov=app --cov-report=term --cov-report=xml:reports/api/coverage.xml \
+		--cov-fail-under=$(COVERAGE_FLOOR)
 
-test-web: ## Run the frontend tests (Vitest) with JUnit + Cobertura reports in reports/web/
+test-web: ## Run the frontend tests (Vitest) with JUnit + Cobertura reports in reports/web/; fails below COVERAGE_FLOOR
 	cd $(WEB) && npx vitest run \
 		--reporter=default --reporter=junit --outputFile.junit=../reports/web/junit.xml \
 		--coverage --coverage.reporter=text-summary --coverage.reporter=cobertura \
-		--coverage.reportsDirectory=../reports/web/coverage
+		--coverage.reportsDirectory=../reports/web/coverage \
+		--coverage.thresholds.lines=$(COVERAGE_FLOOR)

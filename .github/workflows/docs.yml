@@ -5,7 +5,15 @@
 # links; built and published to GitHub Pages (https://job-tracker-docs.job-finder.dev) on pushes to
 # main.
 #
-# Security (CLAUDE.md): no secrets. PRs only build, with read-only contents. The deploy
+# The site also carries the README's coverage badge, badges/coverage.json (shields.io endpoint
+# JSON, from app/ci_report.py). Each Pages deploy replaces the whole site, so:
+#   - a docs deploy carries the live badge over unchanged;
+#   - when CI passes on main, the `badge` job works out the badge from that run's coverage
+#     reports, and the site is redeployed only if it differs from the live one.
+#
+# Security (CLAUDE.md): no secrets. PRs only build, with read-only contents. The `badge` job
+# is the only one that can read Actions artifacts (`actions: read`), and it only accepts CI
+# runs from pushes to main, never a PR's run (whose reports a fork could forge). The deploy
 # job runs on main only and is the one place with Pages permissions (`pages: write`, and
 # `id-token: write`, which GitHub's Pages deployment uses to prove where the site came
 # from). GitHub's own actions only, pinned to commit SHAs.
@@ -19,6 +27,10 @@ on:
   push:
     branches: [main]
     paths: ["docs/**", ".github/workflows/docs.yml"]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions: {}
@@ -27,8 +39,64 @@ concurrency:
   group: docs-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  # Where the site is published (docs/astro.config.mjs `site`).
+  SITE_URL: https://job-tracker-docs.job-finder.dev
+
 jobs:
+  # After CI passes on main: the coverage badge for that run, and whether it has changed.
+  badge:
+    if: >-
+      github.event_name == 'workflow_run'
+      && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      changed: ${{ steps.compare.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: reports-*
+          path: reports
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - run: |
+          mkdir -p badges
+          python3 -m app.ci_report badge \
+            API=reports/reports-api/coverage.xml \
+            web=reports/reports-web/coverage/cobertura-coverage.xml > badges/coverage.json
+          cat badges/coverage.json
+      - id: compare
+        run: |
+          if curl -fsS "$SITE_URL/badges/coverage.json" -o live.json \
+            && cmp -s live.json badges/coverage.json; then
+            echo "The live badge is current: nothing to deploy."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.compare.outputs.changed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: badge
+          path: badges/
+          retention-days: 1
+
   build:
+    needs: badge
+    # Every PR and docs push; after CI, only when the badge has changed. (always(): the
+    # `badge` job is skipped for anything but a CI run.)
+    if: >-
+      always()
+      && (github.event_name != 'workflow_run' || needs.badge.outputs.changed == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -45,6 +113,17 @@ jobs:
       - run: make sync-docs
       # Fails on a broken internal link (starlight-links-validator).
       - run: make docs-build
+      - if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: badge
+          path: docs/dist/badges
+      # A docs deploy keeps the live badge (none yet before the first CI run on main).
+      - if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        run: |
+          mkdir -p docs/dist/badges
+          curl -fsS "$SITE_URL/badges/coverage.json" -o docs/dist/badges/coverage.json \
+            || { rm -f docs/dist/badges/coverage.json; echo "No live badge to keep."; }
       - if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
