@@ -8,12 +8,13 @@
 # The site also carries the README's coverage badge, badges/coverage.json (shields.io endpoint
 # JSON, from app/ci_report.py). Each Pages deploy replaces the whole site, so:
 #   - a docs deploy carries the live badge over unchanged;
-#   - when CI passes on main, the `badge` job works out the badge from that run's coverage
-#     reports, and the site is redeployed only if it differs from the live one.
+#   - when CI passes on main, the `badge` job fetches the badge that run built (ci.yml's
+#     `coverage-badge` job), and the site is redeployed only if it differs from the live one.
 #
 # Security (CLAUDE.md): no secrets. PRs only build, with read-only contents. The `badge` job
-# is the only one that can read Actions artifacts (`actions: read`), and it only accepts CI
-# runs from pushes to main, never a PR's run (whose reports a fork could forge). The deploy
+# is the only one that can read another run's artifacts (`actions: read`, nothing else); it
+# only accepts CI runs from pushes to main, never a PR's run (whose files a fork could forge),
+# and runs no code from the repo: no checkout, just a download and a comparison. The deploy
 # job runs on main only and is the one place with Pages permissions (`pages: write`, and
 # `id-token: write`, which GitHub's Pages deployment uses to prove where the site came
 # from). GitHub's own actions only, pinned to commit SHAs.
@@ -44,7 +45,8 @@ env:
   SITE_URL: https://job-tracker-docs.job-finder.dev
 
 jobs:
-  # After CI passes on main: the coverage badge for that run, and whether it has changed.
+  # After CI passes on main: that run's coverage badge (built by its `coverage-badge` job),
+  # and whether it differs from the live one. No checkout, and no code from the repo runs here.
   badge:
     if: >-
       github.event_name == 'workflow_run'
@@ -54,34 +56,23 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
-      contents: read
       actions: read
     outputs:
       changed: ${{ steps.compare.outputs.changed }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      # Outside the workspace, so nothing in the reports can replace the checked-out code
-      # that reads them.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: reports-*
-          path: ${{ runner.temp }}/reports
+          name: coverage-badge
+          path: ${{ runner.temp }}/badge
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ github.token }}
-      - env:
-          REPORTS: ${{ runner.temp }}/reports
-        run: |
-          mkdir -p badges
-          python3 -m app.ci_report badge \
-            API="$REPORTS/reports-api/coverage.xml" \
-            web="$REPORTS/reports-web/coverage/cobertura-coverage.xml" > badges/coverage.json
-          cat badges/coverage.json
       - id: compare
+        env:
+          BADGE: ${{ runner.temp }}/badge/coverage.json
         run: |
-          if curl -fsS "$SITE_URL/badges/coverage.json" -o live.json \
-            && cmp -s live.json badges/coverage.json; then
+          cat "$BADGE"
+          if curl -fsS "$SITE_URL/badges/coverage.json" -o "$RUNNER_TEMP/live.json" \
+            && cmp -s "$RUNNER_TEMP/live.json" "$BADGE"; then
             echo "The live badge is current: nothing to deploy."
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
@@ -91,7 +82,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: badge
-          path: badges/
+          path: ${{ runner.temp }}/badge/
           retention-days: 1
 
   build:

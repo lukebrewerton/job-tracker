@@ -112,9 +112,10 @@ host their own instance — nothing instance-specific (domains, emails) is hardc
   create a version's tag and release. `docs.yml` deploys the manual to GitHub Pages from
   `main` only, with `pages: write` and `id-token: write` (GitHub's Pages deployment); its
   PR runs only build. It also publishes the README's coverage badge (`badges/coverage.json`):
-  its `badge` job (`actions: read`, nothing else) reads the coverage reports of a CI run
-  that passed on a **push to `main`** — never a PR's run, whose reports a fork could forge —
-  and the site is redeployed only when the badge changes.
+  CI's `coverage-badge` job (pushes to `main` only) builds it, and `docs.yml`'s `badge` job
+  (`actions: read`, nothing else; no checkout, runs no repo code) fetches it from a CI run
+  that passed on a **push to `main`** — never a PR's run, whose files a fork could forge — and
+  the site is redeployed only when the badge changes.
 - **Test reports:** `test-api` and `test-web` add their counts and coverage to the run's
   summary page (`app/ci_report.py`) and upload `reports/` as artifacts (14 days).
 - **Deploys:** CI also runs on push to `main`, and Render (`render.yaml`,
