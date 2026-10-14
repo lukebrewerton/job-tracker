@@ -62,17 +62,21 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Outside the workspace, so nothing in the reports can replace the checked-out code
+      # that reads them.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: reports-*
-          path: reports
+          path: ${{ runner.temp }}/reports
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ github.token }}
-      - run: |
+      - env:
+          REPORTS: ${{ runner.temp }}/reports
+        run: |
           mkdir -p badges
           python3 -m app.ci_report badge \
-            API=reports/reports-api/coverage.xml \
-            web=reports/reports-web/coverage/cobertura-coverage.xml > badges/coverage.json
+            API="$REPORTS/reports-api/coverage.xml" \
+            web="$REPORTS/reports-web/coverage/cobertura-coverage.xml" > badges/coverage.json
           cat badges/coverage.json
       - id: compare
         run: |
