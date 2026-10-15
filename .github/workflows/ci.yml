@@ -108,8 +108,20 @@ jobs:
             NOSUPERUSER NOBYPASSRLS NOCREATEROLE CREATEDB;
           ALTER DATABASE jobtracker OWNER TO jobtracker_app;
           SQL
-      # Writes JUnit + Cobertura to reports/api/. Not published anywhere yet (later ticket).
+      # Writes JUnit + Cobertura to reports/api/; fails below the coverage floor (Makefile).
       - run: make test-api
+      # Even when the tests fail: the run's summary page shows the counts and coverage, and
+      # the reports can be downloaded from the run.
+      - name: Summarise the reports
+        if: ${{ !cancelled() }}
+        run: python3 -m app.ci_report summary Backend reports/api/junit.xml reports/api/coverage.xml >> "$GITHUB_STEP_SUMMARY"
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: reports-api
+          path: reports/api/
+          retention-days: 14
+          if-no-files-found: warn
 
   lint-web:
     runs-on: ubuntu-24.04
@@ -148,7 +160,50 @@ jobs:
             frontend/package-lock.json
             frontend/codegen/package-lock.json
       - run: make sync-web
+      # Writes JUnit + Cobertura to reports/web/; fails below the coverage floor (Makefile).
       - run: make test-web
+      - name: Summarise the reports
+        if: ${{ !cancelled() }}
+        run: python3 -m app.ci_report summary Frontend reports/web/junit.xml reports/web/coverage/cobertura-coverage.xml >> "$GITHUB_STEP_SUMMARY"
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: reports-web
+          path: reports/web/
+          retention-days: 14
+          if-no-files-found: warn
+
+  # On main only: the README's coverage badge (shields.io endpoint JSON) for this run, which
+  # docs.yml publishes with the manual. Built here, in CI's own unprivileged run, so the
+  # docs workflow that reads it never runs code against another run's files.
+  coverage-badge:
+    if: github.event_name == 'push'
+    needs: [test-api, test-web]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: reports-*
+          path: ${{ runner.temp }}/reports
+      - env:
+          REPORTS: ${{ runner.temp }}/reports
+        run: |
+          mkdir -p badge
+          python3 -m app.ci_report badge \
+            API="$REPORTS/reports-api/coverage.xml" \
+            web="$REPORTS/reports-web/coverage/cobertura-coverage.xml" > badge/coverage.json
+          cat badge/coverage.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-badge
+          path: badge/
+          retention-days: 7
 
   docker-build:
     runs-on: ubuntu-24.04

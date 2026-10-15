@@ -22,7 +22,7 @@ make migrate           # apply database migrations
 make dev               # API on http://localhost:8000
 make dev-web           # frontend on http://localhost:5173 (proxies API calls to :8000)
 make lint              # ruff + mypy, oxlint + prettier, and licence checks
-make test              # test suites (needs `make up`: API tests use a real Postgres)
+make test              # test suites, with coverage (needs `make up`: API tests use a real Postgres)
 make openapi types     # after changing the API: regenerate openapi.json, then the frontend types
 ```
 
@@ -33,6 +33,14 @@ and `ENVIRONMENT=development` in `.env` (see [Configuration](/self-hosting/confi
 local account (sign in once first).
 
 Run `make help` to list every target.
+
+## Tests and coverage
+
+`make test` writes JUnit and Cobertura (coverage) reports to `reports/`, and fails if either
+the backend's or the frontend's line coverage drops below 95% (`COVERAGE_FLOOR` in the
+Makefile). In CI, each run's summary page shows the test counts and coverage for both, and
+the reports can be downloaded from the run for two weeks. The README's coverage badge shows
+`main`'s current coverage.
 
 ## This manual
 
