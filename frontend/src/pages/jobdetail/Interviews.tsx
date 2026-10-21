@@ -246,9 +246,11 @@ function InterviewCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  // The time the card mounted: reading the clock during render would make it impure.
+  const [now] = useState(() => Date.now());
   const past =
     interview.scheduled_at !== null &&
-    new Date(interview.scheduled_at) < new Date();
+    new Date(interview.scheduled_at).getTime() < now;
   return (
     <li
       className={`rounded-lg border border-slate-200 p-4 ${past ? "bg-slate-50 text-slate-500" : "bg-white"}`}
