@@ -5,13 +5,15 @@
 <p align="center">
   <img alt="Development status: released" src="https://img.shields.io/badge/development_status-released-green?style=for-the-badge">
   <a href="https://github.com/lukebrewerton/job-tracker/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/lukebrewerton/job-tracker/ci.yml?branch=main&style=for-the-badge&label=CI"></a>
+  <a href="https://github.com/lukebrewerton/job-tracker/actions/workflows/ci.yml?query=branch%3Amain"><img alt="Coverage" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fjob-tracker-docs.job-finder.dev%2Fbadges%2Fcoverage.json&style=for-the-badge"></a>
 </p>
 
 <p align="center"><strong>Track every job you apply for, from saved to offer, and see at a glance what needs following up.</strong></p>
 
 A self-hostable job application tracker. Save a job in seconds, track it from "saved"
 through to an offer, and let the dashboard tell you what needs following up, what's still to
-apply for, and what's gone quiet. A companion Firefox extension, coming soon, will make
+apply for, and what's gone quiet. The companion
+[Firefox extension](https://job-tracker-docs.job-finder.dev/using/browser-extension/) makes
 saving a posting a single click.
 
 <p align="center">

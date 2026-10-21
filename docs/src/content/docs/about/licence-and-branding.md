@@ -12,7 +12,8 @@ The code is AGPL-3.0-or-later; the logo and icons are not (see [Branding](#brand
 
 ## Branding
 
-The Job Tracker logo and icons (`branding/`, and the icons in `frontend/public/`) are
+The Job Tracker logo and icons (`branding/`, the icons in `frontend/public/`, and the
+[browser extension](https://github.com/lukebrewerton/job-tracker-extension)'s icons) are
 © 2026 Luke Brewerton, licensed under
 [CC BY-NC-ND 4.0](https://github.com/lukebrewerton/job-tracker/blob/main/LICENSES/CC-BY-NC-ND-4.0.txt): you may share them unchanged, with
 credit, for non-commercial purposes, but not modify them.
